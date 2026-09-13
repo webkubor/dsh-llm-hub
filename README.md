@@ -43,6 +43,8 @@ npm run deploy
 
 **余额**：同一张 DeepSeek 卡片下方会出现余额行（挂载即查，可手动刷新）。
 
+![DeepSeek 卡片上的余额行](docs/images/models-deepseek-balance.png)
+
 ## 行为细节
 
 ### 连接事实
