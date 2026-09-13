@@ -1,0 +1,61 @@
+{
+  "name": "dsh-llm-hub",
+  "version": "0.1.0",
+  "description": "DSH 官方直连的 LLM 配置补强：模型发现（Models 页「获取可用模型」对 deepseek-official 生效）+ provider 卡片上的 DeepSeek 余额与可用性。零运行时依赖，不改动 DSH 安装。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "deploy": "rsync -av --delete lib/ ~/.dsh/profiles/web/node_modules/dsh-llm-hub/lib/ && rsync -av package.json cordis.patch.yml README.md README.en.md LICENSE ~/.dsh/profiles/web/node_modules/dsh-llm-hub/",
+    "preview": "npm run deploy && open http://127.0.0.1:3080",
+    "check": "node --check lib/index.js && node --check lib/client.js"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "deepseek",
+    "model-discovery",
+    "balance",
+    "llm"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webkubor/dsh-llm-hub.git"
+  },
+  "bugs": {
+    "url": "https://github.com/webkubor/dsh-llm-hub/issues"
+  },
+  "homepage": "https://github.com/webkubor/dsh-llm-hub#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "lib",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ]
+}

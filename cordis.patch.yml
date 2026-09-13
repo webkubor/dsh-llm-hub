@@ -1,0 +1,15 @@
+# 随包分发的 patch —— 由 package.json 的 dsh.bundle.patch 引用。
+#
+# 一行即可：本插件的 host 半（lib/index.js）与 client 半（lib/client.js，由
+# exports["./client"] 与 dsh.client 声明）都由这一个 row 承载。
+#
+# 本插件不禁用、不覆盖任何官方行：
+#   · 模型发现走 llm 服务的 registerModelDiscovery —— 该注册表每个 settings
+#     命名空间只允许一个注册，而 @deepseek-ai/dsh-llm-deepseek 从未注册过
+#     （0.1.2-rc.1 与 0.1.5-rc.2 实测 discover 均零命中），槽是空的。
+#   · 余额走 webServer 服务自建路由 /api/dsh-llm-hub/balance，与官方路由不冲突。
+#   · UI 走官方为「本仓库之外分发的插件」预留的 settings.models.provider-card。
+
+- insert:
+    - id: dsh-llm-hub
+      name: dsh-llm-hub
