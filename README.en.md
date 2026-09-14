@@ -1,19 +1,70 @@
-# dsh-llm-hub
+<p align="center">
+  <img src="https://img.webkubor.online/oss/dsh-llm-hub/models-piai-cards.png" alt="dsh-llm-hub — pi-ai gateway probe and catalog" width="88%" />
+</p>
 
-**An LLM-configuration companion for DSH.** Since v0.2.0 it covers two parts:
+<h1 align="center">🔌 dsh-llm-hub</h1>
 
-1. **DeepSeek direct route** (`deepseek-official`): live **model discovery** plus a
-   **balance and availability row** on its provider card in the Models page.
-2. **Official pi-ai route** (providers under the `llm-pi-ai` settings namespace, e.g.
-   modelgo / minimax / zai-coding-cn): **gateway reachability probes and configured
-   model counts** on their provider cards, and for modelgo a **catalog fetch with
-   one-click id copy** — the official adapter owns the pi-ai discovery slot and its
-   `LISTABLE_PROTOCOLS` excludes `anthropic-messages`, so gateways like modelgo can
-   never be listed officially; this plugin fills that gap from the side.
+<p align="center">
+  <strong>Tells DSH's Models page what it never knew: is this gateway up, and how many models does it actually serve.</strong>
+</p>
 
-Zero runtime dependencies. **No file in the DSH install is modified.**
+<p align="center">
+  <sub>Gateway reachability, model discovery and balance — the parts DSH's official LLM adapters leave empty.<br/>
+  Zero runtime dependencies · touches no file inside your DSH installation</sub>
+</p>
 
-> [中文说明见 README.md](README.md) —— 本项目的首选语言是中文。
+<p align="center">
+  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/v/dsh-llm-hub?style=for-the-badge&color=4C7EF3&logo=npm&logoColor=white" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/dm/dsh-llm-hub?style=for-the-badge&color=5A9E6F" alt="downloads" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-777777?style=for-the-badge" alt="MIT" /></a>
+  <img src="https://img.shields.io/badge/runtime%20deps-0-B4694F?style=for-the-badge" alt="zero deps" />
+</p>
+
+<p align="center">
+  <a href="README.md">中文</a> · <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+## 🏆 Why you need it
+
+DSH already has every mechanism. What's missing is an official adapter using them.
+Same Models page, with and without this plugin:
+
+| What you want to know | Official adapter | dsh-llm-hub |
+|---|:---:|:---:|
+| Which DeepSeek models can I pick | ❌ discovery never registered | ✅ one click, live list |
+| How much credit is left | ❌ not exposed | ✅ balance row on the card |
+| Is this gateway (e.g. modelgo) up | ❌ protocol not listable, button is a no-op | ✅ measured latency + count |
+| How many models does it serve | ❌ invisible | ✅ 71 measured (11 hand-typed) |
+| Why can't this provider be probed | ❌ no hint | ✅ says "no baseURL configured" |
+
+## 🔥 Three capabilities
+
+- **🛰️ Gateway reachability** — a persistent row under each provider card: `pi-ai · name · N models · Key ✓`. One click measures latency and live model count, no terminal round-trip
+- **📋 Catalog bypass** — gateways speaking `anthropic-messages` cannot be listed by the official discovery; this pulls the full id list and copies it in one go. It does not compete for the discovery slot — it bypasses it
+- **💰 Balance at a glance** — DeepSeek's balance and availability right under its card, fetched on mount. Amounts keep the upstream strings verbatim, no float conversion
+
+## ⚡ Quickstart
+
+```sh
+cd ~/.dsh/profiles/web && npm i dsh-llm-hub
+```
+
+Then wire it into the boot graph — append one entry to `dsh.profile.bundles` in that same `package.json`:
+
+```json
+"bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-llm-hub"]
+```
+
+```sh
+~/.dsh/restart.sh                       # boot graph changed — restart is required
+```
+
+Open **Settings → Models**; a new row appears under the provider cards.
+`cordis.patch.yml` is inserted automatically by the bundle mechanism.
+
+> Installing from source: see [Install](#install) below.
+
+---
 
 ## What it fills in
 

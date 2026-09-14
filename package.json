@@ -1,7 +1,7 @@
 {
   "name": "dsh-llm-hub",
-  "version": "0.2.0",
-  "description": "DSH 的 LLM 配置补强：deepseek-official 的模型发现与余额卡 + llm-pi-ai 各 provider 的网关可达性探测与目录旁路（modelgo 等 anthropic-messages 网关的官方发现失效补缺）。零运行时依赖，不改动 DSH 安装。",
+  "version": "0.2.1",
+  "description": "DSH 的 LLM 配置补强：deepseek-official 的模型发现与余额卡 + llm-pi-ai 各 provider 的网关探测、目录旁路，以及 MiniMax/智谱/Moonshot/StepFun 开放余额与配额接口的适配卡。零运行时依赖，不改动 DSH 安装。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {

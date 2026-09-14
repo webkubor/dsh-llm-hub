@@ -1,13 +1,69 @@
-# dsh-llm-hub
+<p align="center">
+  <img src="https://img.webkubor.online/oss/dsh-llm-hub/models-piai-cards.png" alt="dsh-llm-hub — pi-ai 网关探测与目录拉取" width="88%" />
+</p>
 
-**DSH 的 LLM 配置补强（hub）**，v0.2.0 起覆盖两块：
+<h1 align="center">🔌 dsh-llm-hub</h1>
 
-1. **DeepSeek 官方直连**（`deepseek-official`）：自动**发现模型** + Models 页 provider 卡片上的**账户余额与可用性**。
-2. **官方 pi-ai 路由**（`llm-pi-ai` 段里的 modelgo / minimax / zai-coding-cn …）：provider 卡片上的**网关可达性探测与已配模型数**，modelgo 另有**目录拉取 + 一键复制 id** —— 官方适配器占着自己的 discovery 坑、`LISTABLE_PROTOCOLS` 又不含 `anthropic-messages`，modelgo 这类网关的官方「获取可用模型」天然失效，这里旁路补上。
+<p align="center">
+  <strong>给 DSH 的模型页补上一句话：这个网关通不通，上面到底有多少模型。</strong>
+</p>
 
-零运行时依赖，**不修改 DSH 安装里的任何文件**。
+<p align="center">
+  <sub>Gateway reachability, model discovery and balance — the parts DSH's official LLM adapters leave empty.<br/>
+  零运行时依赖 · 不改动 DSH 安装里的任何文件</sub>
+</p>
 
-> [English → README.en.md](README.en.md)
+<p align="center">
+  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/v/dsh-llm-hub?style=for-the-badge&color=4C7EF3&logo=npm&logoColor=white" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/dm/dsh-llm-hub?style=for-the-badge&color=5A9E6F" alt="downloads" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-777777?style=for-the-badge" alt="MIT" /></a>
+  <img src="https://img.shields.io/badge/runtime%20deps-0-B4694F?style=for-the-badge" alt="zero deps" />
+</p>
+
+<p align="center">
+  <a href="README.en.md">English</a> · <a href="CHANGELOG.md">更新日志</a>
+</p>
+
+## 🏆 为什么需要它
+
+DSH 的机制都在，缺的是「官方适配器没去用」。同一张模型页，装与不装的差别：
+
+| 你想知道的 | 官方适配器 | dsh-llm-hub |
+|---|:---:|:---:|
+| DeepSeek 有哪些模型可选 | ❌ discovery 从未注册 | ✅ 一键拉取官方在售 |
+| DeepSeek 账户还有多少钱 | ❌ 不暴露 | ✅ 卡片下常驻余额行 |
+| modelgo 这类网关通不通 | ❌ 协议不可列，按钮天然失效 | ✅ 实测延迟 + 在售数量 |
+| 网关上到底有多少模型 | ❌ 看不到 | ✅ 实测 71 个（手填只有 11） |
+| 为什么这个 provider 探测不了 | ❌ 无提示 | ✅ 写明「没配 baseURL」 |
+
+## 🔥 三个能力
+
+- **🛰️ 网关可达性** — provider 卡片下常驻一行 `pi-ai · 显示名 · 已配 N 个模型 · Key ✓`，点一下实测延迟与在售数量，不用切终端 curl
+- **📋 目录旁路** — `anthropic-messages` 协议的网关官方列不出模型，这里直接拉全量 id 并一键复制；官方适配器占着 discovery 坑，本插件不抢注、只旁路
+- **💰 余额常驻** — DeepSeek 卡片下方显示余额与可用性，挂载即查；金额原样保留上游字符串，不做浮点转换
+
+## ⚡ 30 秒上手
+
+```sh
+cd ~/.dsh/profiles/web && npm i dsh-llm-hub
+```
+
+再把它接进 boot graph —— 同一个 `package.json` 的 `dsh.profile.bundles` 数组末尾加一项：
+
+```json
+"bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-llm-hub"]
+```
+
+```sh
+~/.dsh/restart.sh                       # 改的是 boot graph，必须重启，热载不生效
+```
+
+打开 **设置 → 模型**，provider 卡片下方就会多出新的一行。
+`cordis.patch.yml` 随 bundle 机制自动 insert，不用手写。
+
+> 从源码安装见下方[「安装」](#安装)。
+
+---
 
 ## 它补的是什么
 
@@ -51,8 +107,6 @@ npm run deploy
 - **探测网关**：实时 GET 网关目录端点（`/v1/models` 与 `/models` 按 baseURL 形态自动回退），报告可达性、延迟与在售数量
 - **modelgo 专属**：**拉取目录**列出网关在售模型（实测 71 个，手填仅 11 个），**复制全部 id** 后可直接粘贴整理
 - zai-coding-cn 这类没写 baseURL 的 provider 显示"无法探测"提示，模型仍走手填
-
-![pi-ai 行：三个 provider 的可达性探测与目录拉取](https://img.webkubor.online/oss/dsh-llm-hub/models-piai-cards.png)
 
 ![DeepSeek 卡片上的余额行](https://img.webkubor.online/oss/dsh-llm-hub/models-deepseek-balance.png)
 

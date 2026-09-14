@@ -2,6 +2,19 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.2.1] - 2026-09-14
+
+纯文档版本，代码零改动。
+
+### 变更
+
+- README 按开源项目基线重写（`cs rule open_source_project_baseline` 的 README 金字塔）：
+  产品截图首图 + 居中标题与定位 + 徽章 + 「为什么需要它」对比矩阵 + 三条能力 + 30 秒上手，
+  技术细节全部保留、移到首屏以下
+- Quickstart 改成**可直接运行**的真实步骤（含接入 `dsh.profile.bundles` 那一步，
+  漏掉它插件装了也不加载）
+- 中英文 README 结构对齐
+
 ## [0.2.0] - 2026-09-14
 
 给 `llm-pi-ai` 段里的每个 provider（modelgo / minimax / zai-coding-cn …）补上官方
