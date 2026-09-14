@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="https://img.webkubor.online/oss/dsh-llm-hub/models-piai-cards.png" alt="dsh-llm-hub — pi-ai gateway probe and catalog" width="88%" />
+  <img src="https://img.webkubor.online/oss/dsh-llm-hub/banner.png" alt="dsh-llm-hub — gateway probe, model catalog and balance" width="100%" />
 </p>
-
-<h1 align="center">🔌 dsh-llm-hub</h1>
 
 <p align="center">
   <strong>Tells DSH's Models page what it never knew: is this gateway up, and how many models does it actually serve.</strong>

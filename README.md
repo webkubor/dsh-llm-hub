@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="https://img.webkubor.online/oss/dsh-llm-hub/models-piai-cards.png" alt="dsh-llm-hub — pi-ai 网关探测与目录拉取" width="88%" />
+  <img src="https://img.webkubor.online/oss/dsh-llm-hub/banner.png" alt="dsh-llm-hub — 网关可达性探测、模型目录与余额" width="100%" />
 </p>
-
-<h1 align="center">🔌 dsh-llm-hub</h1>
 
 <p align="center">
   <strong>给 DSH 的模型页补上一句话：这个网关通不通，上面到底有多少模型。</strong>
@@ -107,6 +105,8 @@ npm run deploy
 - **探测网关**：实时 GET 网关目录端点（`/v1/models` 与 `/models` 按 baseURL 形态自动回退），报告可达性、延迟与在售数量
 - **modelgo 专属**：**拉取目录**列出网关在售模型（实测 71 个，手填仅 11 个），**复制全部 id** 后可直接粘贴整理
 - zai-coding-cn 这类没写 baseURL 的 provider 显示"无法探测"提示，模型仍走手填
+
+![pi-ai 行：三个 provider 的可达性探测与目录拉取](https://img.webkubor.online/oss/dsh-llm-hub/models-piai-cards.png)
 
 ![DeepSeek 卡片上的余额行](https://img.webkubor.online/oss/dsh-llm-hub/models-deepseek-balance.png)
 
