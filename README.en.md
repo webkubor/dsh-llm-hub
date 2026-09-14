@@ -1,8 +1,15 @@
 # dsh-llm-hub
 
-**An LLM-configuration companion for DSH's official direct route.** It lets the
-DeepSeek direct route (`deepseek-official`) **discover models** and **show the
-account balance and availability** on its provider card in the Models page.
+**An LLM-configuration companion for DSH.** Since v0.2.0 it covers two parts:
+
+1. **DeepSeek direct route** (`deepseek-official`): live **model discovery** plus a
+   **balance and availability row** on its provider card in the Models page.
+2. **Official pi-ai route** (providers under the `llm-pi-ai` settings namespace, e.g.
+   modelgo / minimax / zai-coding-cn): **gateway reachability probes and configured
+   model counts** on their provider cards, and for modelgo a **catalog fetch with
+   one-click id copy** — the official adapter owns the pi-ai discovery slot and its
+   `LISTABLE_PROTOCOLS` excludes `anthropic-messages`, so gateways like modelgo can
+   never be listed officially; this plugin fills that gap from the side.
 
 Zero runtime dependencies. **No file in the DSH install is modified.**
 
@@ -49,6 +56,13 @@ offers every advertised model for adoption.
 
 **Balance** — a balance row appears under the same DeepSeek card (fetched on
 mount, with a manual refresh).
+
+**pi-ai bypass card** — under any pi-ai provider card (modelgo / minimax /
+zai-coding-cn …): a standing row with the configured model count and key state,
+a **Probe gateway** button reporting reachability, latency and the remote
+catalog size, and — modelgo only — **Fetch catalog** with one-click id copy.
+Providers without a `baseURL` (zai-coding-cn) show an honest "cannot probe"
+hint instead.
 
 ## Behaviour
 

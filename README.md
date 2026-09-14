@@ -1,7 +1,9 @@
 # dsh-llm-hub
 
-**DSH 官方直连路由的 LLM 配置补强**：让 DeepSeek 官方直连（`deepseek-official`）也能
-**自动发现模型**、并在 Models 页的 provider 卡片上**显示账户余额与可用性**。
+**DSH 的 LLM 配置补强（hub）**，v0.2.0 起覆盖两块：
+
+1. **DeepSeek 官方直连**（`deepseek-official`）：自动**发现模型** + Models 页 provider 卡片上的**账户余额与可用性**。
+2. **官方 pi-ai 路由**（`llm-pi-ai` 段里的 modelgo / minimax / zai-coding-cn …）：provider 卡片上的**网关可达性探测与已配模型数**，modelgo 另有**目录拉取 + 一键复制 id** —— 官方适配器占着自己的 discovery 坑、`LISTABLE_PROTOCOLS` 又不含 `anthropic-messages`，modelgo 这类网关的官方「获取可用模型」天然失效，这里旁路补上。
 
 零运行时依赖，**不修改 DSH 安装里的任何文件**。
 
@@ -43,6 +45,13 @@ npm run deploy
 
 **余额**：同一张 DeepSeek 卡片下方会出现余额行（挂载即查，可手动刷新）。
 
+**pi-ai 旁路卡**：设置 → 模型 → 任一 pi-ai provider（modelgo / minimax / zai-coding-cn …）卡片下方：
+
+- 常驻行：`pi-ai · 显示名 · 已配 N 个模型 · Key ✓/✗`
+- **探测网关**：实时 GET 网关目录端点（`/v1/models` 与 `/models` 按 baseURL 形态自动回退），报告可达性、延迟与在售数量
+- **modelgo 专属**：**拉取目录**列出网关在售模型（实测 71 个，手填仅 11 个），**复制全部 id** 后可直接粘贴整理
+- zai-coding-cn 这类没写 baseURL 的 provider 显示"无法探测"提示，模型仍走手填
+
 ![DeepSeek 卡片上的余额行](docs/images/models-deepseek-balance.png)
 
 ## 行为细节
@@ -65,6 +74,26 @@ baseURL 与 apiKey 的解析顺序与适配器自身一致，且**每次调用�
 只接受 `GET`/`HEAD`（否则 405），并拒绝跨站读取（`Sec-Fetch-Site` 非 same-origin/none 时 403）
 —— 余额属账户信息，即使服务绑在 loopback 也不该被跨站页面读走。
 
+### pi-ai 旁路路由
+
+官方 `@deepseek-ai/dsh-llm-pi-ai` **自己占用了** `llm-pi-ai` 的 discovery 坑（抢注会
+`DUPLICATE_DISCOVERY`），且其 `LISTABLE_PROTOCOLS = {openai-completions, openai-responses}`：
+
+| provider | api | baseURL | 官方发现 | 本插件 |
+|---|---|---|---|---|
+| minimax | openai-completions | ✓ | **已可用**（无需本插件） | 探测卡 |
+| modelgo | anthropic-messages | ✓ | 天然失效（协议不可列） | 探测卡 + 目录拉取/复制 |
+| zai-coding-cn | — | ✗ | 不可用（无端点） | 提示手填 |
+
+三条只读路由，全部 `GET`/`HEAD` 限定 + 同源校验（与余额路由同一套纪律），
+provider profile 每次调用惰性重读 `llm-pi-ai` 段：
+
+- `GET /api/dsh-llm-hub/pi-ai/status?provider=<id>` → `{ ok, displayName, api, baseURL, apiKeyEnv, keyConfigured, modelCount }`
+- `GET /api/dsh-llm-hub/pi-ai/probe?provider=<id>` → `{ ok, reachable, latencyMs, remoteCount?, sample?, code?, error? }`
+- `GET /api/dsh-llm-hub/pi-ai/catalog?provider=<id>` → `{ ok, latencyMs, models: [{ id, name?, contextWindow?, maxTokens? }] }`
+
+密钥解析与官方一致：凭据服务（`apiKeyEnv` 引用）→ 进程环境变量。
+
 ### 前端挂载点
 
 `settings.models.provider-card`，`key = 'llm-deepseek'`。owner props 的
@@ -84,6 +113,15 @@ llm-deepseek:
 ```
 
 这是 harness 发现契约本身的限制（官方 pi-ai 那条路同样如此），插件层无法修正。
+
+## 升级到 0.2.0 后的验证
+
+host 半不能热载，`npm run deploy` 之后需要 `~/.dsh/restart.sh`，然后：
+
+1. `curl -s 'http://127.0.0.1:3080/api/dsh-llm-hub/pi-ai/status?provider=modelgo'` → `modelCount` 应等于 settings 里手填的模型数
+2. `curl -s 'http://127.0.0.1:3080/api/dsh-llm-hub/pi-ai/probe?provider=modelgo'` → `reachable: true`、`remoteCount` 在 71 量级（目录随网关增长）
+3. `curl -s 'http://127.0.0.1:3080/api/dsh-llm-hub/pi-ai/probe?provider=zai-coding-cn'` → `reachable: false` + "没有配置 baseURL"（符合预期）
+4. 页面：设置 → 模型 → modelgo 卡片下方出现 pi-ai 行，探测 / 拉取 / 复制可用；DeepSeek 余额卡行为不变
 
 ## 开发
 

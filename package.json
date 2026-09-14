@@ -1,7 +1,7 @@
 {
   "name": "dsh-llm-hub",
-  "version": "0.1.0",
-  "description": "DSH 官方直连的 LLM 配置补强：模型发现（Models 页「获取可用模型」对 deepseek-official 生效）+ provider 卡片上的 DeepSeek 余额与可用性。零运行时依赖，不改动 DSH 安装。",
+  "version": "0.2.0",
+  "description": "DSH 的 LLM 配置补强：deepseek-official 的模型发现与余额卡 + llm-pi-ai 各 provider 的网关可达性探测与目录旁路（modelgo 等 anthropic-messages 网关的官方发现失效补缺）。零运行时依赖，不改动 DSH 安装。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
