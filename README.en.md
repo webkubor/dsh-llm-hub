@@ -1,66 +1,34 @@
 <p align="center">
-  <img src="https://img.webkubor.online/oss/dsh-llm-hub/banner.png" alt="dsh-llm-hub — gateway probe, model catalog and balance" width="100%" />
+  <img src="https://img.webkubor.online/oss/dsh-llm-hub/banner.png" alt="dsh-llm-hub" width="100%" />
 </p>
 
 <p align="center">
-  <strong>Tells DSH's Models page what it never knew: is this gateway up, and how many models does it actually serve.</strong>
+  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/v/dsh-llm-hub?style=flat-square&color=4C7EF3&label=npm" alt="npm" /></a>
+  <img src="https://img.shields.io/badge/deps-0-5A9E6F?style=flat-square" alt="zero deps" />
+  <img src="https://img.shields.io/badge/license-MIT-777?style=flat-square" alt="MIT" />
+  &nbsp;·&nbsp; <a href="README.md">中文</a> · <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-<p align="center">
-  <sub>Gateway reachability, model discovery and balance — the parts DSH's official LLM adapters leave empty.<br/>
-  Zero runtime dependencies · touches no file inside your DSH installation</sub>
-</p>
+On DSH's Models page, the official adapters leave half the job undone. This plugin finishes it:
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/v/dsh-llm-hub?style=for-the-badge&color=4C7EF3&logo=npm&logoColor=white" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/dm/dsh-llm-hub?style=for-the-badge&color=5A9E6F" alt="downloads" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-777777?style=for-the-badge" alt="MIT" /></a>
-  <img src="https://img.shields.io/badge/runtime%20deps-0-B4694F?style=for-the-badge" alt="zero deps" />
-</p>
+| | Official adapter | dsh-llm-hub |
+|---|---|---|
+| Which DeepSeek models exist | invisible | **one click, live list** |
+| How much credit is left | invisible | **balance row on the card** |
+| Is the gateway up, how fast | button does nothing | **measured latency & status** |
+| How many models it serves | invisible | **71 measured** (11 hand-typed) |
+| Why it can't be probed | no hint | **says "no baseURL"** |
 
-<p align="center">
-  <a href="README.md">中文</a> · <a href="CHANGELOG.md">Changelog</a>
-</p>
-
-## 🏆 Why you need it
-
-DSH already has every mechanism. What's missing is an official adapter using them.
-Same Models page, with and without this plugin:
-
-| What you want to know | Official adapter | dsh-llm-hub |
-|---|:---:|:---:|
-| Which DeepSeek models can I pick | ❌ discovery never registered | ✅ one click, live list |
-| How much credit is left | ❌ not exposed | ✅ balance row on the card |
-| Is this gateway (e.g. modelgo) up | ❌ protocol not listable, button is a no-op | ✅ measured latency + count |
-| How many models does it serve | ❌ invisible | ✅ 71 measured (11 hand-typed) |
-| Why can't this provider be probed | ❌ no hint | ✅ says "no baseURL configured" |
-
-## 🔥 Three capabilities
-
-- **🛰️ Gateway reachability** — a persistent row under each provider card: `pi-ai · name · N models · Key ✓`. One click measures latency and live model count, no terminal round-trip
-- **📋 Catalog bypass** — gateways speaking `anthropic-messages` cannot be listed by the official discovery; this pulls the full id list and copies it in one go. It does not compete for the discovery slot — it bypasses it
-- **💰 Balance at a glance** — DeepSeek's balance and availability right under its card, fetched on mount. Amounts keep the upstream strings verbatim, no float conversion
-
-## ⚡ Quickstart
+## Install
 
 ```sh
 cd ~/.dsh/profiles/web && npm i dsh-llm-hub
 ```
 
-Then wire it into the boot graph — append one entry to `dsh.profile.bundles` in that same `package.json`:
+Add `dsh-llm-hub` to `dsh.profile.bundles` in that same `package.json`, then run `~/.dsh/restart.sh`.
+Open **Settings → Models** — a new row appears under the provider cards.
 
-```json
-"bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-llm-hub"]
-```
-
-```sh
-~/.dsh/restart.sh                       # boot graph changed — restart is required
-```
-
-Open **Settings → Models**; a new row appears under the provider cards.
-`cordis.patch.yml` is inserted automatically by the bundle mechanism.
-
-> Installing from source: see [Install](#install) below.
+<sub>A boot-graph change requires a restart; hot reload won't pick it up. `cordis.patch.yml` is inserted automatically by the bundle mechanism.</sub>
 
 ---
 

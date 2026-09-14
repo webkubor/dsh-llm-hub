@@ -1,65 +1,34 @@
 <p align="center">
-  <img src="https://img.webkubor.online/oss/dsh-llm-hub/banner.png" alt="dsh-llm-hub — 网关可达性探测、模型目录与余额" width="100%" />
+  <img src="https://img.webkubor.online/oss/dsh-llm-hub/banner.png" alt="dsh-llm-hub" width="100%" />
 </p>
 
 <p align="center">
-  <strong>给 DSH 的模型页补上一句话：这个网关通不通，上面到底有多少模型。</strong>
+  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/v/dsh-llm-hub?style=flat-square&color=4C7EF3&label=npm" alt="npm" /></a>
+  <img src="https://img.shields.io/badge/deps-0-5A9E6F?style=flat-square" alt="zero deps" />
+  <img src="https://img.shields.io/badge/license-MIT-777?style=flat-square" alt="MIT" />
+  &nbsp;·&nbsp; <a href="README.en.md">English</a> · <a href="CHANGELOG.md">更新日志</a>
 </p>
 
-<p align="center">
-  <sub>Gateway reachability, model discovery and balance — the parts DSH's official LLM adapters leave empty.<br/>
-  零运行时依赖 · 不改动 DSH 安装里的任何文件</sub>
-</p>
+DSH 的模型页上，官方适配器有一半事情没做。这个插件把它补上：
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/v/dsh-llm-hub?style=for-the-badge&color=4C7EF3&logo=npm&logoColor=white" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/dm/dsh-llm-hub?style=for-the-badge&color=5A9E6F" alt="downloads" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-777777?style=for-the-badge" alt="MIT" /></a>
-  <img src="https://img.shields.io/badge/runtime%20deps-0-B4694F?style=for-the-badge" alt="zero deps" />
-</p>
+| | 官方适配器 | dsh-llm-hub |
+|---|---|---|
+| DeepSeek 有哪些模型 | 看不到 | **一键拉取在售列表** |
+| 账户还剩多少钱 | 看不到 | **卡片下常驻余额** |
+| 网关通不通、多快 | 按钮点了没反应 | **实测延迟与状态** |
+| 网关上有多少模型 | 看不到 | **实测 71 个**（手填只有 11） |
+| 为什么探测不了 | 无提示 | **写明「没配 baseURL」** |
 
-<p align="center">
-  <a href="README.en.md">English</a> · <a href="CHANGELOG.md">更新日志</a>
-</p>
-
-## 🏆 为什么需要它
-
-DSH 的机制都在，缺的是「官方适配器没去用」。同一张模型页，装与不装的差别：
-
-| 你想知道的 | 官方适配器 | dsh-llm-hub |
-|---|:---:|:---:|
-| DeepSeek 有哪些模型可选 | ❌ discovery 从未注册 | ✅ 一键拉取官方在售 |
-| DeepSeek 账户还有多少钱 | ❌ 不暴露 | ✅ 卡片下常驻余额行 |
-| modelgo 这类网关通不通 | ❌ 协议不可列，按钮天然失效 | ✅ 实测延迟 + 在售数量 |
-| 网关上到底有多少模型 | ❌ 看不到 | ✅ 实测 71 个（手填只有 11） |
-| 为什么这个 provider 探测不了 | ❌ 无提示 | ✅ 写明「没配 baseURL」 |
-
-## 🔥 三个能力
-
-- **🛰️ 网关可达性** — provider 卡片下常驻一行 `pi-ai · 显示名 · 已配 N 个模型 · Key ✓`，点一下实测延迟与在售数量，不用切终端 curl
-- **📋 目录旁路** — `anthropic-messages` 协议的网关官方列不出模型，这里直接拉全量 id 并一键复制；官方适配器占着 discovery 坑，本插件不抢注、只旁路
-- **💰 余额常驻** — DeepSeek 卡片下方显示余额与可用性，挂载即查；金额原样保留上游字符串，不做浮点转换
-
-## ⚡ 30 秒上手
+## 装
 
 ```sh
 cd ~/.dsh/profiles/web && npm i dsh-llm-hub
 ```
 
-再把它接进 boot graph —— 同一个 `package.json` 的 `dsh.profile.bundles` 数组末尾加一项：
+再把 `dsh-llm-hub` 加进同一个 `package.json` 的 `dsh.profile.bundles` 数组，然后 `~/.dsh/restart.sh`。
+打开**设置 → 模型**，provider 卡片下方会多出一行。
 
-```json
-"bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-llm-hub"]
-```
-
-```sh
-~/.dsh/restart.sh                       # 改的是 boot graph，必须重启，热载不生效
-```
-
-打开 **设置 → 模型**，provider 卡片下方就会多出新的一行。
-`cordis.patch.yml` 随 bundle 机制自动 insert，不用手写。
-
-> 从源码安装见下方[「安装」](#安装)。
+<sub>boot graph 变了必须重启，热载不生效；`cordis.patch.yml` 由 bundle 机制自动 insert。</sub>
 
 ---
 
