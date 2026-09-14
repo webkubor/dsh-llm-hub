@@ -52,10 +52,11 @@
     "access": "public"
   },
   "files": [
-    "cordis.patch.yml",
-    "lib",
-    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
     "README.en.md",
-    "LICENSE"
+    "README.md",
+    "cordis.patch.yml",
+    "lib"
   ]
 }

@@ -52,7 +52,9 @@ npm run deploy
 - **modelgo 专属**：**拉取目录**列出网关在售模型（实测 71 个，手填仅 11 个），**复制全部 id** 后可直接粘贴整理
 - zai-coding-cn 这类没写 baseURL 的 provider 显示"无法探测"提示，模型仍走手填
 
-![DeepSeek 卡片上的余额行](docs/images/models-deepseek-balance.png)
+![pi-ai 行：三个 provider 的可达性探测与目录拉取](https://img.webkubor.online/oss/dsh-llm-hub/models-piai-cards.png)
+
+![DeepSeek 卡片上的余额行](https://img.webkubor.online/oss/dsh-llm-hub/models-deepseek-balance.png)
 
 ## 行为细节
 
