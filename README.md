@@ -22,11 +22,11 @@ DSH 的模型页上，官方适配器有一半事情没做。这个插件把它�
 ## 装
 
 ```sh
-cd ~/.dsh/profiles/web && npm i dsh-llm-hub
+dsh plugin --profile web add dsh-llm-hub
 ```
 
-再把 `dsh-llm-hub` 加进同一个 `package.json` 的 `dsh.profile.bundles` 数组，然后 `~/.dsh/restart.sh`。
-打开**设置 → 模型**，provider 卡片下方会多出一行。
+再把 `dsh-llm-hub` 加进 `~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 数组，
+然后 `~/.dsh/restart.sh`。打开**设置 → 模型**，provider 卡片下方会多出一行。
 
 <sub>boot graph 变了必须重启，热载不生效；`cordis.patch.yml` 由 bundle 机制自动 insert。</sub>
 
@@ -45,21 +45,6 @@ DSH 自己已经具备全部机制，缺的只是"官方适配器没去用它们
 **发现注册表每个 settings 命名空间只允许一个注册**（第二次抛 `DUPLICATE_DISCOVERY`），
 而 `llm-deepseek` 这个槽是空的 —— 本插件占上即可。官方 `slot-contract.d.ts` 也明确：
 那两个扩展位就是给**本仓库之外分发的插件**用的。
-
-## 安装
-
-```sh
-# 1) 装进你的 profile（profile 名按自己的改，默认 web）
-dsh plugin --profile web add dsh-llm-hub
-#    本地开发改用：npm run deploy（软链进 web profile 的 node_modules）
-
-# 2) 接进 boot graph（一次性）：把 "dsh-llm-hub" 加进
-#    ~/.dsh/profiles/web/package.json 的 dsh.profile.bundles 数组。
-#    本包的 cordis.patch.yml 随 bundle 机制自动 insert，无需手写行。
-
-# 3) 重启（改的是 boot graph，必须重启）
-~/.dsh/restart.sh
-```
 
 ## 用法
 
@@ -138,15 +123,6 @@ llm-deepseek:
 ```
 
 这是 harness 发现契约本身的限制（官方 pi-ai 那条路同样如此），插件层无法修正。
-
-## 升级到 0.2.0 后的验证
-
-host 半不能热载，`npm run deploy` 之后需要 `~/.dsh/restart.sh`，然后：
-
-1. `curl -s 'http://127.0.0.1:3080/api/dsh-llm-hub/pi-ai/status?provider=modelgo'` → `modelCount` 应等于 settings 里手填的模型数
-2. `curl -s 'http://127.0.0.1:3080/api/dsh-llm-hub/pi-ai/probe?provider=modelgo'` → `reachable: true`、`remoteCount` 在 71 量级（目录随网关增长）
-3. `curl -s 'http://127.0.0.1:3080/api/dsh-llm-hub/pi-ai/probe?provider=zai-coding-cn'` → `reachable: false` + "没有配置 baseURL"（符合预期）
-4. 页面：设置 → 模型 → modelgo 卡片下方出现 pi-ai 行，探测 / 拉取 / 复制可用；DeepSeek 余额卡行为不变
 
 ## 开发
 

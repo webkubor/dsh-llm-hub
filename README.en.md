@@ -22,10 +22,10 @@ On DSH's Models page, the official adapters leave half the job undone. This plug
 ## Install
 
 ```sh
-cd ~/.dsh/profiles/web && npm i dsh-llm-hub
+dsh plugin --profile web add dsh-llm-hub
 ```
 
-Add `dsh-llm-hub` to `dsh.profile.bundles` in that same `package.json`, then run `~/.dsh/restart.sh`.
+Add `dsh-llm-hub` to `dsh.profile.bundles` in `~/.dsh/profiles/web/package.json`, then run `~/.dsh/restart.sh`.
 Open **Settings → Models** — a new row appears under the provider cards.
 
 <sub>A boot-graph change requires a restart; hot reload won't pick it up. `cordis.patch.yml` is inserted automatically by the bundle mechanism.</sub>
@@ -48,22 +48,6 @@ namespace** (a second throws `DUPLICATE_DISCOVERY`), and the `llm-deepseek`
 namespace is unoccupied — so this plugin takes it. DSH's own
 `slot-contract.d.ts` states plainly that those two slots exist for **plugins
 distributed outside the repository**.
-
-## Install
-
-```sh
-# 1) Deploy into the web profile's node_modules
-npm run deploy
-
-# 2) Wire it into the boot graph (once): in ~/.dsh/profiles/web/package.json
-#      dependencies        += "dsh-llm-hub": "file:<path to this repo>"
-#      dsh.profile.bundles += "dsh-llm-hub"
-#    This package's cordis.patch.yml is inserted automatically via the bundle
-#    mechanism, so no hand-written row is needed.
-
-# 3) Restart (the boot graph changed, so a restart is required)
-~/.dsh/restart.sh
-```
 
 ## Usage
 
