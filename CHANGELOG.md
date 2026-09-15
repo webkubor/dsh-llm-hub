@@ -2,6 +2,23 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.4.1] - 2026-09-15
+
+### 新增
+
+- **模型页页脚：版本 + GitHub + 问题反馈**。别的 DSH 插件都有反馈入口，这个没有——
+  用户遇到问题无处可说，闭不上环。新增 `GET /api/dsh-llm-hub/meta` 返回包名、版本、
+  仓库与 issues 地址，页脚（`settings.models.footer`）渲染成一行。
+
+  版本号从 `package.json` 读，**不在前端硬编码**——硬编码的版本每次发版都要记得改，
+  而忘记改的那次没人会发现。
+
+### 修复
+
+- meta 路由第一版写了 `require('../package.json')`，本包是 ESM（`type: module`），
+  装上去直接 `require is not defined`。改用 `import.meta.url` + `readFileSync`。
+  这类错只在运行时暴露，语法检查看不出来。
+
 ## [0.4.0] - 2026-09-15
 
 拉到了目录却只能「复制全部 id」——最后一公里一直留给人自己粘。这版把它走完。
