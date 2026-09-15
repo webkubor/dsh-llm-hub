@@ -137,6 +137,12 @@ npm run deploy    # 同步到 web profile
   `name` 完全一致**，否则 DSH 拒绝注册。React 由 `factory(require)` 提供，不打包进产物。
   当前体量无需构建步骤；若将来拆多文件，再加 esbuild（`format: 'iife'`，React 等标 external）。
 
+## 同一台 DSH 上的另一半
+
+这个插件管模型页**用**起来顺不顺手；**看**起来顺不顺眼是另一件事 ——
+[Bloom](https://github.com/webkubor/dsh-bloom-theme)（`@kubor/dsh-bloom-theme`）是同作者的
+DSH 主题：10 套诗词命名的莫兰迪配色、磨砂玻璃面板、顶栏一键切换，20 组配色实测全部达 WCAG AA。
+
 ## License
 
 MIT
