@@ -60,7 +60,7 @@ DSH 自己已经具备全部机制，缺的只是"官方适配器没去用它们
 - **modelgo 专属**：**拉取目录**列出网关在售模型（实测 71 个，手填仅 11 个），**复制全部 id** 后可直接粘贴整理
 - zai-coding-cn 这类没写 baseURL 的 provider 显示"无法探测"提示，模型仍走手填
 
-![pi-ai 行：协议、接入地址、已配模型数、余额/配额，以及探测与目录拉取](https://img.webkubor.online/oss/dsh-llm-hub/v051/models-piai-cards.png)
+![pi-ai 行：协议、接入地址、已配模型数、余额/配额，以及探测与目录拉取](https://img.webkubor.online/oss/dsh-llm-hub/v052/models-piai-cards.png)
 
 ![DeepSeek 卡片上的余额行](https://img.webkubor.online/oss/dsh-llm-hub/v051/models-deepseek-balance.png)
 
