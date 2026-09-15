@@ -2,6 +2,25 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.5.0] - 2026-09-15
+
+### 新增
+
+- **pi-ai 行显示协议与接入地址**。这两项决定了这个 provider 到底连去哪、用哪套报文
+  （`openai-completions` / `anthropic-messages` / …），出问题时第一眼要看的就是它们，
+  之前只能去翻 `settings.yaml`。协议直接显示；地址只显示域名，完整 URL 放 `title` ——
+  一行放不下，而域名已经够回答「连的是不是我以为的那个网关」。
+
+- **页脚「分享插件」**。复制的是一段完整说明：一句介绍 + 三步安装 + 仓库链接，
+  发给别人就能照着装上。
+
+### 修复
+
+- 分享文案原先是 `cd ~/.dsh/profiles/web && npm i dsh-llm-hub` —— 写死了我自己的
+  profile 名，而且**装进 node_modules 不等于接进 boot graph**：少了
+  `dsh.profile.bundles` 那行，插件根本不会加载。对方照着做装不上，等于分享没用。
+  README 的安装段同步改成 `dsh plugin --profile <name> add`。
+
 ## [0.4.1] - 2026-09-15
 
 ### 新增
