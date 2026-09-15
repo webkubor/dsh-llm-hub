@@ -2,6 +2,38 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.3.0] - 2026-09-15
+
+### 新增
+
+- **provider 余额 / 配额卡**：pi-ai 行下方显示各家的余量，四个适配器：
+  | provider | 接口 | 显示 |
+  |---|---|---|
+  | minimax | `/v1/token_plan/remains` | 套餐余量百分比（日 / 周） |
+  | zhipu | `/api/monitor/usage/quota/limit` | coding 套餐配额 |
+  | moonshot | `/v1/users/me/balance` | 现金余额 |
+  | stepfun | `/v1/accounts` | 现金 + 代金券 |
+
+  自建网关（ModelGo 等）没有开放计费路由，如实报「不支持」，**绝不猜端点**。
+
+  > ⚠️ 这个功能的代码其实在 0.2.0 就已随包发布，但当时被误提交进一个标题为
+  > `docs: 0.2.0 发版材料` 的 commit（`git add -A` 把工作区里的代码一起带走了），
+  > CHANGELOG 与 README 都没提过它。此处补记，并正式计入 0.3.0。
+
+### 修复
+
+- **zhipu 的余额接口从来没通过**：`path: () => '/api/monitor/...'` 把 base 参数整个
+  丢掉，于是 `hostFor` 明明给对了 `https://open.bigmodel.cn`，fetch 拿到的仍是相对
+  路径，直接抛 `Failed to parse URL`。补回 base 后正常返回上游的
+  「当前用户不存在coding plan」。
+- **错误提示不再暴露技术细节**。设置页是给用人看的，之前卡片上直接印
+  `could not reach /api/monitor/usage/quota/limit: Failed to parse URL from ...`,
+  读的人既不知道发生了什么，也不知道该做什么。现在 `reason` 一律是人话
+  （「未填写服务地址，查不了余额」「连不上服务商」「API key 可能无效或没有查询余额的
+  权限」「这家服务商没有提供余额查询接口」），技术细节移到不展示的 `detail` 字段。
+- 拼出的 URL 不是绝对地址时提前拦截并给出人话 —— 适配器是一张表，表里任何一行
+  写错都不该让用户看见一句 `Failed to parse URL`。
+
 ## [0.2.3] - 2026-09-14
 
 纯文档版本，代码零改动。
