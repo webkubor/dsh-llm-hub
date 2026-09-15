@@ -49,12 +49,12 @@ DSH 自己已经具备全部机制，缺的只是"官方适配器没去用它们
 ## 安装
 
 ```sh
-# 1) 部署进 web profile 的 node_modules
-npm run deploy
+# 1) 装进你的 profile（profile 名按自己的改，默认 web）
+dsh plugin --profile web add dsh-llm-hub
+#    本地开发改用：npm run deploy（软链进 web profile 的 node_modules）
 
-# 2) 接进 boot graph（一次性）：在 ~/.dsh/profiles/web/package.json 里
-#      dependencies        += "dsh-llm-hub": "file:<本仓库路径>"
-#      dsh.profile.bundles += "dsh-llm-hub"
+# 2) 接进 boot graph（一次性）：把 "dsh-llm-hub" 加进
+#    ~/.dsh/profiles/web/package.json 的 dsh.profile.bundles 数组。
 #    本包的 cordis.patch.yml 随 bundle 机制自动 insert，无需手写行。
 
 # 3) 重启（改的是 boot graph，必须重启）
