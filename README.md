@@ -60,7 +60,7 @@ DSH 自己已经具备全部机制，缺的只是"官方适配器没去用它们
 - **modelgo 专属**：**拉取目录**列出网关在售模型（实测 71 个，手填仅 11 个），**复制全部 id** 后可直接粘贴整理
 - zai-coding-cn 这类没写 baseURL 的 provider 显示"无法探测"提示，模型仍走手填
 
-![pi-ai 行：协议、接入地址、已配模型数、余额/配额，以及探测与目录拉取](https://img.webkubor.online/oss/dsh-llm-hub/v052/models-piai-cards.png)
+![pi-ai 卡片：协议、接入地址、已配模型数、余额/配额，以及探测与目录拉取 —— 事实与动作各占一行](https://img.webkubor.online/oss/dsh-llm-hub/v060/models-piai-cards.png)
 
 ![DeepSeek 卡片上的余额行](https://img.webkubor.online/oss/dsh-llm-hub/v051/models-deepseek-balance.png)
 
@@ -132,6 +132,8 @@ key 过期、余额耗尽、网关 401，都会照常出现在那里，点了才
 红色状态片「已从下拉隐藏」（原因在悬停提示里）；页脚则给出全局的「已隐藏 N」和
 **「重新探测全部」**。不再另设一块逐条重述的面板 —— 卡片上本来就有状态，
 再来一份只是重复（2026-09-16 owner：「这不是很多余吗，上面不都是显示了吗」）。
+
+![ModelGo 卡上的「已从下拉隐藏」状态片，以及页脚的「已隐藏 1 · 重新探测全部」](https://img.webkubor.online/oss/dsh-llm-hub/v060/availability.png)
 
 ### 实现方式与取舍
 

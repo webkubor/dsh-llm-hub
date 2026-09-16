@@ -122,6 +122,8 @@ red "hidden from dropdown" chip in its action row (the reason lives in its toolt
 the global count and the **"Re-check all"** action. There is deliberately no separate panel restating
 each provider — the cards already show their own state, so that would only be duplication.
 
+![The "hidden from dropdown" chip on the ModelGo card, and the footer's "hidden 1 · Re-check all"](https://img.webkubor.online/oss/dsh-llm-hub/v060/availability.png)
+
 ### How it works, and the trade-off
 
 Filtering happens in the **host half, on `ctx.llm.listProviders()`** — the only seam that covers every
