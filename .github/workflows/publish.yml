@@ -54,7 +54,11 @@ jobs:
       - name: 语法 + 回归测试 + 发布产物校验
         run: |
           npm run check
-          npm test
+          # `--if-present`：这个工作流也用来**补发旧 tag**（workflow_dispatch），而
+          # v0.6.2 之前的 tag 树里还没有 `test` 脚本，严格 `npm test` 会让「补发一个
+          # 老版本」在第一步就失败（实测：v0.6.1 报 Missing script: test）。
+          # 0.6.2 起每个 tag 都带测试，所以正常发版路径上这道闸门依然是实的。
+          npm test --if-present
           npm pack --dry-run --json > pack.json
           node -e "
             const f = require('./pack.json')[0].files.map(x => x.path)
