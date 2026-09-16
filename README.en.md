@@ -165,8 +165,14 @@ route has it too); no plugin can fix it.
 
 ```sh
 npm run check     # syntax of both halves
+npm test          # regression tests (node:test, zero dependencies)
 npm run deploy    # sync into the web profile
 ```
+
+Tests live in `test/` and use only `node:test` + `node:assert`; CI runs them. Each case pins a
+**bug that was actually hit** — the availability chain (credential → probe → balance → runtime)
+is long, and degrading any link produces no compile error: it just silently hides a working model
+or leaves a broken one in the dropdown.
 
 - **Host half** `lib/index.js`: ESM (the cordis loader reads it as ESM).
 - **Client half** `lib/client.js`: **source is the artifact**, a classic script

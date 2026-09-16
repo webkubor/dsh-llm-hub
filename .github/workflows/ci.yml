@@ -20,6 +20,11 @@ jobs:
       - name: 两半语法
         run: npm run check
 
+      # 可用性判定链很长（凭据 → 探测 → 余额 → 运行期），任何一环退化都不会有编译
+      # 错误，只会静默地把能用的模型藏起来。test/ 里每条用例钉住一个真实踩过的坑。
+      - name: 回归测试
+        run: npm test
+
       # 确认发布产物完整：只声明 dsh.client 或漏掉 cordis.patch.yml，
       # 装上去不会报错，但插件根本不进 boot graph。
       - name: 校验发布产物

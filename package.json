@@ -28,7 +28,8 @@
   "scripts": {
     "deploy": "rsync -av --delete lib/ ~/.dsh/profiles/web/node_modules/dsh-llm-hub/lib/ && rsync -av package.json cordis.patch.yml README.md README.en.md LICENSE ~/.dsh/profiles/web/node_modules/dsh-llm-hub/",
     "preview": "npm run deploy && open http://127.0.0.1:3080",
-    "check": "node --check lib/index.js && node --check lib/client.js"
+    "check": "node --check lib/index.js && node --check lib/client.js",
+    "test": "node --test"
   },
   "keywords": [
     "dsh",

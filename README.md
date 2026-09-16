@@ -172,8 +172,13 @@ llm-deepseek:
 
 ```sh
 npm run check     # 两半语法
+npm test          # 回归测试（node:test，零依赖）
 npm run deploy    # 同步到 web profile
 ```
+
+测试在 `test/`，零依赖（只用 `node:test` + `node:assert`），CI 里跑。每条用例都钉住一个
+**真实踩过的坑** —— 判定链很长（凭据 → 探测 → 余额 → 运行期），任何一环退化都不会有编译
+错误，只会静默地把能用的模型藏起来，或者把不能用的留在下拉里：
 
 - **host 半** `lib/index.js`：ESM（cordis loader 按 ESM 读）。
 - **client 半** `lib/client.js`：**源码即产物**，classic script（无顶层 import/export），
