@@ -97,6 +97,51 @@ loopback.
 `keyConfigured` decides whether a request is made at all: with no key
 configured the card shows a hint instead of fetching.
 
+## Model dropdown availability (only what works)
+
+The composer's model dropdown lists **every configured provider** regardless of whether it can
+actually be called: an expired key, an empty balance, or a gateway returning 401 all still show up
+and only fail once you pick them. This plugin hides providers that are **confirmed unusable**:
+
+Criteria are evidence-only (fail-open — anything inconclusive is kept; hiding a working model is
+worse than showing a broken one):
+
+| Signal | Hides when |
+|---|---|
+| Credential | the variable named by `apiKeyEnv` resolves nowhere (neither the credential store nor the environment) |
+| Probe | the gateway answers the catalog endpoint with `401`/`403`/`402` |
+| Balance | DeepSeek `/user/balance` reports `is_available=false` or a zero balance; a MiniMax/Zhipu quota is provably exhausted |
+| Runtime | a real request failed with `INVALID_CREDENTIAL` / `QUOTA_EXCEEDED` (via `agent/request-error`) |
+
+**Recovery is automatic**: after you fix the key or top up, `settings/document-updated` invalidates
+the cache and the next read re-probes; a successful real request also clears the runtime mark at once.
+The **"Re-check all"** button at the bottom of Settings → Models forces a full re-probe.
+
+**Hidden providers do not disappear**: their cards stay in Settings → Models; the card just grows a
+red "hidden from dropdown" chip in its action row (the reason lives in its tooltip). The footer carries
+the global count and the **"Re-check all"** action. There is deliberately no separate panel restating
+each provider — the cards already show their own state, so that would only be duplication.
+
+### How it works, and the trade-off
+
+Filtering happens in the **host half, on `ctx.llm.listProviders()`** — the only seam that covers every
+consumer at once (composer dropdown, `/model` popup, subagent picker, ACP), and it is subtractive and
+reverted when the plugin unloads. The settings page reads the configurable-provider directory
+(`listConfigurableProviders`) instead, so it is unaffected.
+
+Wrapping `ctx.modelDirectories` in the client half was tried and **fails**: it is a cordis
+inject-tracking proxy whose methods come back as traceable proxies, so a plugin fiber without the
+`remote.session` inject throws `cannot get property "remote.session" without inject` — measured on
+2026-09-16, it crashes the shipped model seat right out of the composer. The contract marks
+`conversation.input.model` as a single slot with `replaceRisk: shadows-shipped-ui`; taking it over
+means re-implementing the whole menu and tracking upstream forever, which is not worth it.
+
+One more counter-intuitive trap: **judging must be driven by the settings section, never by
+`listProviders()`** — the latter is the filter's own output, so treating it as the target means a
+hidden provider never enters the next probe round: hidden forever. Likewise, a cordis service method
+**cannot** be verified with `!==` (every access through a traceable proxy yields a new object); check
+the property descriptor instead.
+
 ## Known limitation
 
 **Discovery candidates cannot carry `inputModalities`.** The llm service keeps

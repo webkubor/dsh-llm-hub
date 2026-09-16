@@ -109,6 +109,48 @@ provider profile 每次调用惰性重读 `llm-pi-ai` 段：
 `settings.models.provider-card`，`key = 'llm-deepseek'`。owner props 的
 `keyConfigured` 决定是否发起查询：未配置密钥时显示提示而不请求。
 
+## 模型下拉可用性（只留能用的）
+
+composer 的模型下拉默认列出**所有已配置 provider**，与它们能不能调通无关 ——
+key 过期、余额耗尽、网关 401，都会照常出现在那里，点了才报错。本插件把「确凿不可用」
+的 provider 从下拉里摘掉：
+
+**判定只认确凿证据**（fail-open，拿不准一律保留 —— 误藏一个能用的，比多显示一个不能用的更糟）：
+
+| 信号 | 触发隐藏的例子 |
+|---|---|
+| 凭据 | `apiKeyEnv` 指向的变量解析不到（本机 / 凭据库里都没有） |
+| 探测 | 网关对目录端点回 `401`/`403`/`402` |
+| 余额 | DeepSeek `/user/balance` 报 `is_available=false` 或余额为 0；MiniMax/智谱的配额确凿用尽 |
+| 运行期 | 真实请求因 `INVALID_CREDENTIAL` / `QUOTA_EXCEEDED` 失败（监听 `agent/request-error`） |
+
+**恢复**是自动的：改好 key / 充值之后，`settings/document-updated` 会让缓存立刻作废，
+下一次读取即重探；真实请求成功也会立即撤销运行期标记。设置页右下角的
+**「重新探测全部」**用于立即强制重来一遍。
+
+**被隐藏的 provider 不会消失**：设置 → 模型 的卡片照常在，只是那张卡的动作条上会多一枚
+红色状态片「已从下拉隐藏」（原因在悬停提示里）；页脚则给出全局的「已隐藏 N」和
+**「重新探测全部」**。不再另设一块逐条重述的面板 —— 卡片上本来就有状态，
+再来一份只是重复（2026-09-16 owner：「这不是很多余吗，上面不都是显示了吗」）。
+
+### 实现方式与取舍
+
+过滤落在 **host 半的 `ctx.llm.listProviders()`** 上：这是唯一能一次覆盖所有消费方的缝
+（composer 下拉、`/model` 弹窗、子代理选择器、ACP 都读它），而且**只做减法、可随插件卸载还原**。
+设置页读的是 configurable-provider 目录（`listConfigurableProviders`），所以不受影响。
+
+也试过在 client 半包 `ctx.modelDirectories`，**不行**：那是 cordis 的 inject 追踪代理，
+读出来的方法被包成 traceable proxy，插件 fiber 缺 `remote.session` 注入，
+一调用就 `cannot get property "remote.session" without inject` ——
+2026-09-16 实测会把官方模型座位整个打崩（座位从 composer 里消失）。
+契约里 `conversation.input.model` 是 single slot、`replaceRisk: shadows-shipped-ui`，
+顶掉它意味着自己复刻整套菜单并长期跟版，收益不值。
+
+另一个反直觉的坑：**判定目标必须取自设置段，不能取自 `listProviders()`** ——
+后者正是过滤器的输出，拿它当目标，被隐藏的 provider 就再也不会进入下一轮探测，
+「隐藏即永久」。同理，cordis 服务的方法**不能**用 `!==` 校验是否替换成功
+（traceable 代理每次访问都是新对象），要看属性描述符。
+
 ## 已知限制
 
 **发现候选承载不了 `inputModalities`。** llm 服务只保留
