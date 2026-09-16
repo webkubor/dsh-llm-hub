@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/dsh-llm-hub"><img src="https://img.shields.io/npm/v/dsh-llm-hub?style=flat-square&color=4C7EF3&label=npm" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/@webkubor/dsh-llm-hub"><img src="https://img.shields.io/npm/v/@webkubor/dsh-llm-hub?style=flat-square&color=4C7EF3&label=npm" alt="npm" /></a>
   <img src="https://img.shields.io/badge/deps-0-5A9E6F?style=flat-square" alt="zero deps" />
   <img src="https://img.shields.io/badge/license-MIT-777?style=flat-square" alt="MIT" />
   &nbsp;·&nbsp; <a href="README.md">中文</a> · <a href="CHANGELOG.md">Changelog</a>
@@ -22,10 +22,10 @@ On DSH's Models page, the official adapters leave half the job undone. This plug
 ## Install
 
 ```sh
-dsh plugin --profile web add dsh-llm-hub
+dsh plugin --profile web add @webkubor/dsh-llm-hub
 ```
 
-Add `dsh-llm-hub` to `dsh.profile.bundles` in `~/.dsh/profiles/web/package.json`, then run `~/.dsh/restart.sh`.
+Add `@webkubor/dsh-llm-hub` to `dsh.profile.bundles` in `~/.dsh/profiles/web/package.json`, then run `~/.dsh/restart.sh`.
 Open **Settings → Models** — a new row appears under the provider cards.
 
 <sub>A boot-graph change requires a restart; hot reload won't pick it up. `cordis.patch.yml` is inserted automatically by the bundle mechanism.</sub>

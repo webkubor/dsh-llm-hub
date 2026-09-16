@@ -1,5 +1,5 @@
 {
-  "name": "dsh-llm-hub",
+  "name": "@webkubor/dsh-llm-hub",
   "version": "0.6.2",
   "description": "给 DSH 模型页补上官方适配器缺的那半：网关可达性探测、模型目录拉取、DeepSeek 余额常驻，以及 MiniMax / 智谱 / Moonshot / StepFun 的余额与配额卡。零运行时依赖，不改动 DSH 安装。",
   "type": "module",
@@ -26,7 +26,7 @@
     }
   },
   "scripts": {
-    "deploy": "rsync -av --delete lib/ ~/.dsh/profiles/web/node_modules/dsh-llm-hub/lib/ && rsync -av package.json cordis.patch.yml README.md README.en.md LICENSE ~/.dsh/profiles/web/node_modules/dsh-llm-hub/",
+    "deploy": "rsync -av --delete lib/ ~/.dsh/profiles/web/node_modules/@webkubor/dsh-llm-hub/lib/ && rsync -av package.json cordis.patch.yml README.md README.en.md LICENSE ~/.dsh/profiles/web/node_modules/@webkubor/dsh-llm-hub/",
     "preview": "npm run deploy && open http://127.0.0.1:3080",
     "check": "node --check lib/index.js && node --check lib/client.js",
     "test": "node --test"
