@@ -1,0 +1,128 @@
+name: Publish
+
+# 推 `v*` tag 时自动发 npm；也能手动补发/重试（workflow_dispatch 填 tag）。
+#
+# 与 ci.yml 的关系：CI 每次 push 都跑校验，这里在发布前**再跑一遍**同样三件套 ——
+# 发布是最后一道门，不依赖「之前某次 CI 应该跑过了」这种假设。
+#
+# 手动补发为什么必要：2026-09-16 实测，tag 已经推上去了、npm 因为账号侧原因没发成，
+# 于是「git/Release 有、npm 没有」。没有 workflow_dispatch 就只能重推 tag（会撞
+# 「tag 已存在」）或本地补发（依赖本机 token，正是这一环最容易出问题的地方）。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的 tag（如 v0.6.2）—— 补发或重试用'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # gh release create
+    env:
+      # push 事件没有 inputs，取 github.ref_name（= tag 名）；手动触发时用填的那个。
+      # 手动触发时用填的 tag；push 事件没有 inputs，`||` 回退到 tag 名。
+      # 用 github.event.inputs 而不是 inputs：前者在非 dispatch 事件下是「没有这个键」
+      # （表达式取 null，走回退），后者的可用性依赖较新的 GitHub 版本。
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      # fetch-depth: 0 + fetch-tags —— 本工作流用 tag 的**注解**当 Release 标题
+      # （`git tag -a ... -m "v0.6.2 — …"`）。浅克隆里 `%(contents:subject)` 取不到注解，
+      # 标题会静默退化成裸 tag 名（不会报错，只是变难看）。
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # 刻意**没有** `npm ci`：本包运行时与开发时都零依赖，也没有 lockfile
+      # （ci.yml 里有同样的说明）。这里的三个检查只用 Node 内建能力。
+      # 从别的仓库照抄带 `npm ci` 的版本会直接挂 —— bloom-theme 的 publish.yml 上
+      # 就留着一句注释记录过这类事故（反方向：它确实有 devDependency，漏了 install
+      # 于是 `sh: 1: contrast-guard: not found`、tag 打出去了 npm 没发成）。
+      # 结论：发布工作流的安装步骤要按**本仓库**的依赖事实写，不能互抄。
+
+      - name: 语法 + 回归测试 + 发布产物校验
+        run: |
+          npm run check
+          npm test
+          npm pack --dry-run --json > pack.json
+          node -e "
+            const f = require('./pack.json')[0].files.map(x => x.path)
+            const need = ['package.json', 'cordis.patch.yml', 'lib/client.js', 'lib/index.js', 'README.md', 'LICENSE']
+            const miss = need.filter(n => !f.includes(n))
+            if (miss.length) { console.error('发布产物缺少: ' + miss.join(', ')); process.exit(1) }
+            console.log('发布产物完整 (' + f.length + ' 个文件)')
+          "
+
+      # tag 名必须与 package.json version 一致，防止「tag 是 v0.6.2、发的却是 0.6.1」；
+      # 同时探测该版本是否已在 npm 上 —— 重推同一 tag / 重复点手动发布时不报错、不重发。
+      - name: 校验 tag 与版本一致，并探测 npm
+        id: ver
+        run: |
+          TAG="${RELEASE_TAG#v}"
+          VER="$(node -p 'require("./package.json").version')"
+          if [ "$TAG" != "$VER" ]; then
+            echo "::error::tag v$TAG 与 package.json version $VER 不一致"
+            exit 1
+          fi
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          if npm view "dsh-llm-hub@$VER" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "v$VER 已在 npm 上，跳过 publish"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 需要在仓库 secret 里配 NPM_TOKEN（Automation 或带 publish 权限的 granular token）。
+      # 注意它救不了账号级问题：2026-09-16 实测 npm 回
+      # 「Your account has been temporarily suspended due to a recent security-sensitive
+      # action」+ 403 —— 那种情况只有本人去 npmjs.com 解除，工作流这边能做的就是别掩盖它。
+      - name: npm publish
+        if: steps.ver.outputs.published == 'false'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # 本仓库的 Release 是手建的（没有 release-please），所以这里负责建；但必须幂等：
+      # `gh release view` 探到就跳过。bloom-theme 那边踩过的坑是两边都建，
+      # 后建的撞 `HTTP 422 Release.tag_name already exists` 把整个 Publish 标红，
+      # 而其实 npm 已经发成功了 ——「已经存在」是正常情况，不该算失败。
+      #
+      # 这一步**不挂** `published == 'false'`：npm 发没发过，与 Release 建没建成是两件
+      # 独立的事。挂上去会让「npm 已发成功、Release 却没建起来」的重试场景失效
+      # （published=true → 补建被整个跳过 → Release 永远补不上）。
+      - name: GitHub Release（缺失时补建，正文取 CHANGELOG 对应小节）
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "release $RELEASE_TAG 已存在，跳过"
+            exit 0
+          fi
+          VER="${RELEASE_TAG#v}"
+          # 标题承袭手工发布时的写法：`v0.6.2 — 一句话`，那句话就在 tag 注解里。
+          SUBJECT="$(git for-each-ref --format='%(contents:subject)' "refs/tags/$RELEASE_TAG")"
+          TITLE="${SUBJECT:-$RELEASE_TAG}"
+          # 正文取 CHANGELOG 里该版本的小节（到下一个 `## [` 之前）。
+          node -e "
+            const fs = require('fs')
+            const ver = process.env.RELEASE_TAG.replace(/^v/, '')
+            const text = fs.readFileSync('CHANGELOG.md', 'utf8')
+            const start = text.indexOf('## [' + ver + ']')
+            if (start < 0) { console.error('CHANGELOG 里找不到 ' + ver + ' 小节'); process.exit(1) }
+            const rest = text.slice(start)
+            const next = rest.indexOf('\n## [', 1)
+            fs.writeFileSync('/tmp/notes.md', (next < 0 ? rest : rest.slice(0, next)).trim() + '\n')
+            console.log('notes 取到 ' + (next < 0 ? rest : rest.slice(0, next)).length + ' 字符')
+          "
+          gh release create "$RELEASE_TAG" --title "$TITLE" --notes-file /tmp/notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}

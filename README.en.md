@@ -174,6 +174,23 @@ Tests live in `test/` and use only `node:test` + `node:assert`; CI runs them. Ea
 is long, and degrading any link produces no compile error: it just silently hides a working model
 or leaves a broken one in the dropdown.
 
+### Releasing
+
+Pushing a `v*` tag triggers `.github/workflows/publish.yml`: it re-runs syntax + regression
+tests + the publish-artifact check **before** publishing (rather than trusting that some earlier
+CI run passed), then `npm publish`, then creates the GitHub Release from the matching CHANGELOG
+section when one is missing. Requires an `NPM_TOKEN` repository secret.
+
+A missed or failed publish can be retried without re-pushing the tag:
+
+```sh
+gh workflow run publish.yml -f tag=v0.6.2
+```
+
+Idempotency comes from two checks — the tag must match `package.json`'s version, and an
+already-published version is skipped. Release existence is probed separately, so "npm succeeded
+but no Release was created" is recoverable by re-running.
+
 - **Host half** `lib/index.js`: ESM (the cordis loader reads it as ESM).
 - **Client half** `lib/client.js`: **source is the artifact**, a classic script
   (no top-level `import`/`export`) registered through

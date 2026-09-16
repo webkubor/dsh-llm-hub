@@ -180,6 +180,21 @@ npm run deploy    # 同步到 web profile
 **真实踩过的坑** —— 判定链很长（凭据 → 探测 → 余额 → 运行期），任何一环退化都不会有编译
 错误，只会静默地把能用的模型藏起来，或者把不能用的留在下拉里：
 
+### 发布
+
+推 `v*` tag 即触发 `.github/workflows/publish.yml`：先在发布前**再跑一遍**语法 + 回归测试 +
+发布产物校验（不依赖「之前某次 CI 应该跑过了」），再 `npm publish`，最后在 Release 缺失时
+按 CHANGELOG 对应小节建。需要在仓库 secret 里配 `NPM_TOKEN`。
+
+漏发或失败可以手动补，不用重推 tag：
+
+```sh
+gh workflow run publish.yml -f tag=v0.6.2
+```
+
+幂等由两道判断保证 —— tag 必须与 `package.json` 的 version 一致；npm 上已有该版本就跳过
+publish。Release 的存在性单独探测，所以「npm 发成功但 Release 没建起来」也能靠重跑补上。
+
 - **host 半** `lib/index.js`：ESM（cordis loader 按 ESM 读）。
 - **client 半** `lib/client.js`：**源码即产物**，classic script（无顶层 import/export），
   经 `window.__ModuleLoader__.load({ id, factory })` 注册。`id` **必须与 package.json 的
