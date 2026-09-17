@@ -2,6 +2,28 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.6.3] - 2026-09-17
+
+### 修复
+
+- **插件加载失败**：`lib/client.js` 注册的 id 是 `dsh-llm-hub`，而包名已经是
+  `@webkubor/dsh-llm-hub`。宿主按 `package.json` 的 `name` 找注册，对不上就报
+  `loaded without registering @webkubor/dsh-llm-hub via __ModuleLoader__.load`。
+
+  来源是 0.6.2 那次 scope 迁移（commit f907589）：package.json 改了，这里漏了。
+
+  代价比看起来大——DSH 把所有插件打进**同一个 client bundle**，一个注册失败
+  整个 bundle 一起废，用户看到的是「Failed to load plugins」加一长串五十几个包名，
+  **完全看不出是哪个插件的锅**。
+
+### 测试
+
+- `test/client-cards.test.mjs` 里本来就有「id 必须与 package.json 的 name 一致」这条断言，
+  说法完全正确，**但期望值写死成了旧包名** —— 迁移时它非但没拦住，反而成了钉住旧名的锚。
+  改成从 `package.json` 读，以后包名再变自动跟随。
+- 新增 `test/plugin-id.test.mjs`：独立守卫同一条约束，外加「产物里不能出现顶层
+  import/export」（宿主是 `factory(require)` 形态，顶层模块语法会让 bundle 解析失败）。
+
 ## [0.6.2] - 2026-09-16
 
 ### 测试

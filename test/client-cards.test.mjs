@@ -10,6 +10,14 @@
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+/** 包名从 package.json 读，不写死 —— 写死的那版正是没拦住 2026-09-17 那次 scope 迁移的原因 */
+const PKG_NAME = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf8'),
+).name
 
 /** 本文件里所有用例共用的「已注册的 client 插件定义」。 */
 let pluginDefinition = null
@@ -23,7 +31,10 @@ globalThis.document = {
 }
 await import('../lib/client.js')
 assert.ok(pluginDefinition, 'client 脚本没有通过 window.__ModuleLoader__.load 注册')
-assert.equal(pluginDefinition.id, 'dsh-llm-hub', 'id 必须与 package.json 的 name 一致，否则 DSH 拒绝注册')
+// 断言的说法一直是对的，但期望值曾被写死成 'dsh-llm-hub' —— 包名迁到 @webkubor/ scope 时
+// 只改了 package.json，这条断言反而变成了钉住旧名的锚，于是没拦住，直到 DSH 里报
+// "loaded without registering ... via __ModuleLoader__.load" 才发现。
+assert.equal(pluginDefinition.id, PKG_NAME, 'id 必须与 package.json 的 name 一致，否则 DSH 拒绝注册')
 
 /**
  * 一份可控的 React 桩。
