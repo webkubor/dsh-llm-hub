@@ -26,7 +26,7 @@
     }
   },
   "scripts": {
-    "deploy": "rsync -av --delete lib/ ~/.dsh/profiles/web/node_modules/@webkubor/dsh-llm-hub/lib/ && rsync -av package.json cordis.patch.yml README.md README.en.md LICENSE ~/.dsh/profiles/web/node_modules/@webkubor/dsh-llm-hub/",
+    "deploy": "rsync -av --delete lib/ ~/.dsh/profiles/web/node_modules/@dsh-plugins/dsh-llm-hub/lib/ && rsync -av package.json cordis.patch.yml README.md README.en.md LICENSE ~/.dsh/profiles/web/node_modules/@dsh-plugins/dsh-llm-hub/",
     "preview": "npm run deploy && open http://127.0.0.1:3080",
     "check": "for f in lib/*.js; do node --check \"$f\" || exit 1; done",
     "test": "node --test"
