@@ -153,6 +153,54 @@ key 过期、余额耗尽、网关 401，都会照常出现在那里，点了才
 「隐藏即永久」。同理，cordis 服务的方法**不能**用 `!==` 校验是否替换成功
 （traceable 代理每次访问都是新对象），要看属性描述符。
 
+## 外部 harness 子代理（装了才出现）
+
+把**本机已经装好**的外部 agent CLI 注册成 DSH 的子代理提供方，会话里就能把一段独立
+任务甩给它们，各自烧各自的订阅额度：
+
+| 工具 | 需要本机装 | 实际执行 |
+|---|---|---|
+| `subagent_codex` | `codex` | `codex exec --skip-git-repo-check <任务>` |
+| `subagent_claude_code` | `claude` | `claude -p <任务>` |
+| `subagent_antigravity` | `agy` | `agy -p <任务> --dangerously-skip-permissions` |
+
+**没装的不会出现。** provider 只在对应可执行文件真的存在时才注册，而
+`dsh-tool-subagent` 对缺失的 provider 只打一条 info、把工具行延迟到 provider 出现才
+注册。所以在没装 codex 的机器上 `subagent_codex` 根本不进工具目录，宿主照常启动 ——
+不需要任何开关或配置。
+
+探测走 `ctx.subprocess.resolveExecutable`（内核自己的解析器，与子进程执行时同一套
+PATH 视图），**不自己扫 PATH**：登录 shell 的 alias 会骗过 `command -v`（`agy` 常被
+alias 成带 `--dangerously-skip-permissions` 的形式），而 launchd 起的宿主进程压根读
+不到 `.zshrc` 里的 PATH。
+
+### 几个钉死的边界
+
+- **`agy` 必须带 `--dangerously-skip-permissions`**：headless print 模式下它会自动
+  拒绝 `command` 权限，于是任何碰文件或命令的任务都 **exit 0 且零输出**。少这个 flag
+  不报错，只让子代理「成功」地什么也没干。
+- **exit 0 + 空输出一律报错**，不折成 `completed`：否则父 agent 拿着空答案往下走。
+- **`codex` 带 `--skip-git-repo-check`**：父会话 cwd 不一定是 git 仓库，缺了直接拒跑。
+- **stderr 只留 8 KiB 尾巴**：agy 的 glog 在日志目录不可写时能喷 300+ 行，不能全进父日志。
+- 子进程**不继承父上下文**，也不声明任何 start 能力（persona / 工具过滤 / 深度上限 /
+  结构化输出在另一个运行时里都管不到），如实声明让内核提前拒掉要这些能力的请求。
+
+### 与官方 bundle、与 preset 手工行共存
+
+- 官方的 `@deepseek-ai/dsh-subagent-codex` / `-claude-code` 注册的是同名 provider
+  （`codex` / `claude-code`）。**先到的赢**：本插件遇到重名只记一行 info 跳过，剩下的
+  继续注册。想让本插件统一提供，把那两个官方 bundle 从 profile 里移除。
+- ⚠️ 如果你在 `~/.dsh/.agent-presets/*/agent.cordis.yml` 里手工加过
+  `tool-subagent-codex` 这类行，**删掉它们** —— 同一个 `toolName` 不能注册两次。
+
+### 为什么内核符号是动态 import
+
+`@deepseek-ai/dsh-subagent` / `-session` 由宿主提供（profile 里经
+`.dsh-module-fallback` 解析），**仓库目录里解析不到**。顶部静态 import 会两头挨打：
+仓库内跑测试直接 `MODULE_NOT_FOUND`，线上一旦某个宿主版本少了其中一个导出，整个插件
+加载失败 —— 连余额和模型发现一起没了。惰性载入把风险关在这一段里。探测与注册这条
+启动路径完全不碰内核 import（空能力声明就地内联），只有真正 spawn 子进程时才载入。
+
 ## 已知限制
 
 **发现候选承载不了 `inputModalities`。** llm 服务只保留
@@ -189,7 +237,7 @@ npm run deploy    # 同步到 web profile
 漏发或失败可以手动补，不用重推 tag：
 
 ```sh
-gh workflow run publish.yml -f tag=v0.6.4
+gh workflow run publish.yml -f tag=v0.7.0
 ```
 
 幂等由两道判断保证 —— tag 必须与 `package.json` 的 version 一致；npm 上已有该版本就跳过

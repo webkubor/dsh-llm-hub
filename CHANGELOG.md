@@ -2,6 +2,53 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.7.0] - 2026-09-17
+
+### 新增
+
+- **外部 harness 子代理**：把本机装好的 `codex` / `claude` / `agy` 注册成 DSH 子代理
+  提供方，会话里多出 `subagent_codex` / `subagent_claude_code` / `subagent_antigravity`
+  三个委派工具，各自烧各自的订阅额度。
+
+  **没装的不会出现** —— provider 只在可执行文件真的存在时才注册，而
+  `dsh-tool-subagent` 对缺失的 provider 只打一条 info、把工具行延迟到 provider 出现
+  才注册（实测 `dsh-tool-subagent/lib/index.js:575`）。所以别人机器上没装 codex，
+  `subagent_codex` 根本不进工具目录，宿主照常启动，不需要任何开关。
+
+  探测走 `ctx.subprocess.resolveExecutable`，不自己扫 PATH：shell alias 会骗过
+  `command -v`（本机 `agy` 就是带 `--dangerously-skip-permissions` 的 alias），
+  而 launchd 起的宿主读不到 `.zshrc` 的 PATH。
+
+  几个钉死的边界（每个都有测试覆盖）：
+  - `agy` **必须**带 `--dangerously-skip-permissions`：headless print 模式下它自动
+    拒绝 `command` 权限，任何碰文件或命令的任务都 exit 0 且零输出 —— 不报错，只是
+    「成功」地什么都没干。
+  - **exit 0 + 空输出一律报错**，不折成 `completed`（否则父 agent 拿空答案往下走）。
+  - `codex` 带 `--skip-git-repo-check`（父 cwd 不一定是 git 仓库，缺了直接拒跑）。
+  - stderr 只留 8 KiB 尾巴（agy 的 glog 在日志目录不可写时能喷 300+ 行）。
+  - 同名 provider 已被官方 bundle 占用时跳过并继续注册剩下的，不中断。
+
+  内核符号（`dsh-subagent` / `dsh-session`）用**动态** import：它们由宿主提供、仓库
+  目录里解析不到，静态 import 会让仓库内测试 `MODULE_NOT_FOUND`，也会让宿主少一个
+  导出时整个插件加载失败（连余额和模型发现一起没）。探测与注册这条启动路径完全不碰
+  内核 import —— 空能力声明就地内联。
+
+  ⚠️ 升级注意：如果你在 `~/.dsh/.agent-presets/*/agent.cordis.yml` 里手工加过
+  `tool-subagent-codex` 这类行，删掉它们 —— 同一个 `toolName` 不能注册两次。
+
+### 修复
+
+- **发布工作流的 npm 幂等探测查错了包**：`npm view "dsh-llm-hub@$VER"` 少了 scope，而
+  npm 上还留着一个同名无 scope 的旧包（`dsh-llm-hub@0.6.1`）。探它等于探错对象 ——
+  本包每个新版都被判成「不存在」，于是重跑 workflow 会再 publish 一次、撞 npm 的 403
+  `cannot publish over previously published versions`，把一次已经成功的发布报成失败。
+  注释里写的「npm 上已有该版本就跳过」此前是句空话。
+
+- **`npm run check` 漏文件**：原来硬写 `lib/index.js` + `lib/client.js` 两个，新增
+  `lib/harness.js` 时漏了 —— 而 check 正是 publish 的第一道闸门。改成遍历 `lib/*.js`，
+  以后加文件不会再漏。同理给发布产物校验清单补上 `lib/harness.js`（漏了会发出一个
+  不含核心功能的包，而那个清单存在的唯一理由就是防这个）。
+
 ## [0.6.5] - 2026-09-17
 
 ### 文档

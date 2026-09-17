@@ -144,6 +144,67 @@ hidden provider never enters the next probe round: hidden forever. Likewise, a c
 **cannot** be verified with `!==` (every access through a traceable proxy yields a new object); check
 the property descriptor instead.
 
+## External harness subagents (they appear only if installed)
+
+Registers the external agent CLIs **already installed on this machine** as DSH
+subagent providers, so a session can hand a self-contained task to one of them —
+each billed against its own subscription:
+
+| Tool | Requires | Actually runs |
+|---|---|---|
+| `subagent_codex` | `codex` | `codex exec --skip-git-repo-check <task>` |
+| `subagent_claude_code` | `claude` | `claude -p <task>` |
+| `subagent_antigravity` | `agy` | `agy -p <task> --dangerously-skip-permissions` |
+
+**What isn't installed doesn't show up.** A provider is registered only when its
+executable actually resolves, and `dsh-tool-subagent` logs a single info line for
+a missing provider while deferring the tool row until that provider appears. On a
+machine without codex, `subagent_codex` never enters the tool catalog and the host
+still starts normally — no switch, no configuration.
+
+Detection goes through `ctx.subprocess.resolveExecutable` (the kernel's own
+resolver, sharing the PATH view the child process will actually get) rather than
+scanning PATH by hand: a login-shell alias fools `command -v` (`agy` is commonly
+aliased with `--dangerously-skip-permissions`), and a launchd-started host never
+reads `.zshrc` at all.
+
+### Pinned edge cases
+
+- **`agy` must carry `--dangerously-skip-permissions`**: in headless print mode it
+  auto-denies the `command` permission, so any task touching files or commands
+  exits 0 with **no output** — no error, the subagent just "succeeds" having done
+  nothing.
+- **Exit 0 with empty output always fails**, never folds to `completed` (otherwise
+  the parent agent proceeds on an empty answer).
+- **`codex` carries `--skip-git-repo-check`**: the parent cwd is not necessarily a
+  git repository, and without the flag codex refuses to run.
+- **Only an 8 KiB stderr tail is kept**: agy's glog bridge emits 300+ lines when its
+  log directory is not writable.
+- The child **does not inherit parent context** and advertises no start-time
+  capabilities (persona, tool filter, depth cap, structured output cannot be
+  enforced inside another runtime), so the kernel rejects requests needing them up
+  front instead of silently ignoring them.
+
+### Coexisting with the official bundles and preset rows
+
+- The official `@deepseek-ai/dsh-subagent-codex` / `-claude-code` register providers
+  under the same names (`codex` / `claude-code`). **First one wins**: this plugin logs
+  one info line, skips, and keeps registering the rest. Remove those bundles from the
+  profile to let this plugin provide all three.
+- ⚠️ If you hand-added rows like `tool-subagent-codex` in
+  `~/.dsh/.agent-presets/*/agent.cordis.yml`, **delete them** — the same `toolName`
+  cannot be registered twice.
+
+### Why kernel symbols are imported dynamically
+
+`@deepseek-ai/dsh-subagent` / `-session` are supplied by the host (resolved through
+`.dsh-module-fallback` inside a profile) and **cannot be resolved from the repository**.
+A top-level static import would fail both ways: `MODULE_NOT_FOUND` when running the
+repo's tests, and — should a host version ever drop one of those exports — a plugin
+that fails to load entirely, taking balance and model discovery down with it. Lazy
+loading confines that risk to this feature. Detection and registration never touch a
+kernel import at all: the empty capability advertisement is inlined.
+
 ## Known limitation
 
 **Discovery candidates cannot carry `inputModalities`.** The llm service keeps
@@ -184,7 +245,7 @@ section when one is missing. Requires an `NPM_TOKEN` repository secret.
 A missed or failed publish can be retried without re-pushing the tag:
 
 ```sh
-gh workflow run publish.yml -f tag=v0.6.4
+gh workflow run publish.yml -f tag=v0.7.0
 ```
 
 Idempotency comes from two checks — the tag must match `package.json`'s version, and an

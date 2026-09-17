@@ -13,3 +13,43 @@
 - insert:
     - id: dsh-llm-hub
       name: '@webkubor/dsh-llm-hub'
+
+    # ── harness 子代理工具行 ───────────────────────────────────────────────────
+    #
+    # 三个外部 harness CLI（codex / claude / agy）的委派工具。provider 由 host 半
+    # 的 `lib/harness.js` 按「本机装没装」注册。
+    #
+    # **没装的机器上这几行是惰性的**：`dsh-tool-subagent` 对缺失的 provider 只打一条
+    # info（`provider "codex" not registered yet; the "subagent_codex" tool will
+    # register when it appears`），工具行延迟到 provider 出现才注册。所以别人机器上
+    # 没装 codex，`subagent_codex` 就不会出现在工具目录里，宿主也不会启动失败。
+    #
+    # `maxDepth: provider-managed`：子进程是另一个 harness 的完整运行时，父侧的深度
+    # 计数管不到它，交给它自己管。
+    #
+    # ⚠️ 与 agent preset 里手工加的行冲突：同一个 toolName 不能注册两次。如果你在
+    # `~/.dsh/.agent-presets/*/agent.cordis.yml` 里自己加过 `tool-subagent-codex`
+    # 这类行，删掉那几行，改由本插件统一提供 —— 否则重名。
+    - id: dsh-llm-hub-tool-subagent-codex
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: codex
+        toolName: subagent_codex
+        backgroundMode: one-shot
+        maxDepth: provider-managed
+
+    - id: dsh-llm-hub-tool-subagent-claude-code
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: claude-code
+        toolName: subagent_claude_code
+        backgroundMode: one-shot
+        maxDepth: provider-managed
+
+    - id: dsh-llm-hub-tool-subagent-antigravity
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: antigravity
+        toolName: subagent_antigravity
+        backgroundMode: one-shot
+        maxDepth: provider-managed

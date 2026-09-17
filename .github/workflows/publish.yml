@@ -62,7 +62,7 @@ jobs:
           npm pack --dry-run --json > pack.json
           node -e "
             const f = require('./pack.json')[0].files.map(x => x.path)
-            const need = ['package.json', 'cordis.patch.yml', 'lib/client.js', 'lib/index.js', 'README.md', 'LICENSE']
+            const need = ['package.json', 'cordis.patch.yml', 'lib/client.js', 'lib/index.js', 'lib/harness.js', 'README.md', 'LICENSE']
             const miss = need.filter(n => !f.includes(n))
             if (miss.length) { console.error('发布产物缺少: ' + miss.join(', ')); process.exit(1) }
             console.log('发布产物完整 (' + f.length + ' 个文件)')
@@ -80,7 +80,11 @@ jobs:
             exit 1
           fi
           echo "ver=$VER" >> "$GITHUB_OUTPUT"
-          if npm view "dsh-llm-hub@$VER" version >/dev/null 2>&1; then
+          # 必须带 scope：npm 上还留着一个同名无 scope 的旧包（dsh-llm-hub@0.6.1），
+          # 探它等于探错包 —— 本包每个新版都「不存在」，于是重跑 workflow 会再发一次
+          # 并撞 npm 的 403「cannot publish over previously published versions」，
+          # 把已经成功的一次发布报成失败。2026-09-17 发 0.7.0 前发现。
+          if npm view "@webkubor/dsh-llm-hub@$VER" version >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "v$VER 已在 npm 上，跳过 publish"
           else
