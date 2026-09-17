@@ -126,12 +126,18 @@ function bootstrap(options = {}) {
 		react._reset(options.seed)
 		return slot.component({ ...slot.inject(), provider })
 	}
+	const renderHarness = () => {
+		const slot = slots.find((item) => item.id === 'dsh-llm-hub-harness')
+		react._reset(options.seed)
+		return slot.component({ ...slot.inject() })
+	}
 	return {
 		slots,
 		subscriptions,
 		calls,
 		renderFooter,
 		renderPiai,
+		renderHarness,
 		/** 直接拿可用性存储（页脚注入的就是它） */
 		store: footer.inject().availability
 	}
@@ -151,14 +157,20 @@ const STATUS = {
 	balanceAdapter: null
 }
 
-test('挂载点：两张 provider 卡 + 页脚，且不再有逐条重述的可用性面板', () => {
+test('挂载点：两张 provider 卡 + 页脚 + harness 一览，且不再有逐条重述的可用性面板', () => {
 	const hub = bootstrap()
 	const mounted = hub.slots.map((slot) => `${slot.name}${slot.id ? '#' + slot.id : ''}${slot.key ? '@' + slot.key : ''}`)
 	assert.deepEqual(mounted.sort(), [
 		'settings.models.footer#dsh-llm-hub-footer',
+		'settings.models.footer#dsh-llm-hub-harness',
 		'settings.models.provider-card@llm-deepseek',
 		'settings.models.provider-card@llm-pi-ai'
 	].sort())
+	// footer 是 list slot，两个条目靠 id 区分、靠 order 排序（harness 90 在 footer 100 之前）。
+	// 漏了 id 会被宿主静默丢弃 —— 接口通、组件在、页面上什么都没有。
+	const footer = hub.slots.filter((slot) => slot.name === 'settings.models.footer')
+	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness'])
+	for (const slot of footer) assert.equal(typeof slot.order, 'number', 'list slot 必须给 order')
 	// 面板是初版设计，后来因为与卡片重复被拿掉；这里钉住它不会被顺手加回来。
 	assert.equal(hub.slots.some((slot) => slot.id === 'dsh-llm-hub-availability'), false)
 })
@@ -234,4 +246,55 @@ test('可用性缓存：订阅设置/凭据事件，改完 key 会自动重读',
 	for (const event of ['settings/document-updated', 'credentials/reference-updated', 'llm/adapters-updated']) {
 		assert.ok(hub.subscriptions.includes(event), `应订阅 ${event}`)
 	}
+})
+
+// ── harness 一览 ────────────────────────────────────────────────────────────
+
+/** 三个 harness 的典型快照：一个可派、一个被占、一个没装。 */
+const HARNESS_REPORT = {
+	ok: true,
+	probed: true,
+	harnesses: [
+		{ id: 'codex', bin: 'codex', displayName: 'Codex', installed: true, registered: false, note: '提供方已存在' },
+		{ id: 'claude-code', bin: 'claude', displayName: 'Claude Code', installed: false, registered: false, note: '未找到可执行文件' },
+		{ id: 'antigravity', bin: 'agy', displayName: 'Antigravity', installed: true, registered: true, executable: '/Users/x/.local/bin/agy', note: '' }
+	]
+}
+
+test('harness：probed 为 false 时什么都不渲染（启动竞态不能说成「都没装」）', () => {
+	// host 半是异步探测的，页面可能在探完之前就打开了。这时候渲染「未安装 ×3」
+	// 是在说谎，用户会去装一个其实已经装了的 CLI。
+	const hub = bootstrap({ seed: [{ ok: true, probed: false, harnesses: [] }] })
+	assert.equal(hub.renderHarness(), null)
+})
+
+test('harness：接口失败或清单为空 → 不渲染', () => {
+	assert.equal(bootstrap({ seed: [{ ok: false }] }).renderHarness(), null)
+	assert.equal(bootstrap({ seed: [{ ok: true, probed: true, harnesses: [] }] }).renderHarness(), null)
+})
+
+test('harness：三种状态各渲染一个 chip，未安装的也显示（要让人知道装了能多派一个）', () => {
+	const tree = bootstrap({ seed: [HARNESS_REPORT] }).renderHarness()
+	const texts = textsOf(tree)
+	// 三个名字都在
+	for (const name of ['Codex', 'Claude Code', 'Antigravity']) assert.ok(texts.includes(name), `缺 ${name}`)
+	// 三种状态文案各出现一次
+	assert.equal(texts.filter((x) => x === 'harnessReady').length, 1)
+	assert.equal(texts.filter((x) => x === 'harnessOccupied').length, 1)
+	assert.equal(texts.filter((x) => x === 'harnessMissing').length, 1)
+})
+
+test('harness：只有 registered 的那个带就绪点，未安装的整个 chip 置灰', () => {
+	const tree = bootstrap({ seed: [HARNESS_REPORT] }).renderHarness()
+	const nodes = flatten(tree).filter((n) => n && n.props && typeof n.props.className === 'string')
+	const readyDots = nodes.filter((n) => n.props.className.includes('__dot--ready'))
+	assert.equal(readyDots.length, 1, '只有真注册上的才算就绪')
+	const dimmed = nodes.filter((n) => n.props.className.includes('__chip--missing'))
+	assert.equal(dimmed.length, 1, '只有没装的那个置灰；被占用的装了，不该灰')
+})
+
+test('harness：可执行文件路径进 tooltip（「装了却不生效」第一件要查的就是它找到了哪个副本）', () => {
+	const tree = bootstrap({ seed: [HARNESS_REPORT] }).renderHarness()
+	const chip = flatten(tree).find((n) => n && n.props && typeof n.props.title === 'string' && n.props.title.includes('/agy'))
+	assert.ok(chip, '已解析到路径的 harness 必须把路径放进 title')
 })
