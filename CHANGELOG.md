@@ -2,6 +2,35 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.6.4] - 2026-09-17
+
+### 新增
+
+- **`models: []` 自动 discover 写回**：当用户在 `settings.yaml` 里把 modelgo 这类
+  pi-ai 风格 provider 的 `models:` 留成空列表，plugin 启动时主动去对应网关
+  `GET <baseURL>/models` 拉一份目录写回去 —— settings.yaml 里就不再留 `models: []`
+  这种「我不知道该填什么」的占位。下次 reload / 重启不需要重做这件事：pi-ai 自己的
+  onChange 会按 settings 重新注册 model 目录。
+
+  写回是「跨 namespace 兜底」：plugin 自己的 settings NS 是 `llm-deepseek`，但
+  写回的目标是 `llm-pi-ai.providers.*` —— plugin 不是 pi-ai 的 owner，只是借用
+  settings 服务给 pi-ai 段补一份目录。
+
+  几个钉死的边界条件（每个都有测试覆盖）：
+  - 用户已显式填的 `models: [a, b]` **不**被覆盖。
+  - 缺 `baseURL` / `apiKeyEnv` 时直接跳过，不报错。
+  - fetch 失败 / 状态非 2xx / JSON 解析失败 → best-effort 跳过，下次 boot 再试。
+  - 写回只在 plugin 启动时跑一次；不订阅 `settings/onChange`（避免自己写回后被自己
+    的广播二次触发）。
+  - **TOCTOU 防护**：fetch 期间用户在外部编辑 settings.yaml 填上了 `models`，
+    写入前会再 `get` 一次当前段，把已非空的 provider 从 `updates` 里过滤掉，避免
+    fetch 前的快照结果覆盖用户的并发编辑。
+
+### 测试
+
+- 新增 `test/host-settings-patch.test.mjs`：7 条用例覆盖上述每条边界条件 + 启动时
+  boot patch 真把空列表填上 + fetch 期间用户外部填了 `models` 时不被覆盖（TOCTOU）。
+
 ## [0.6.3] - 2026-09-17
 
 ### 修复

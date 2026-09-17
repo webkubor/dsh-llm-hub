@@ -56,7 +56,8 @@ function createHost(options = {}) {
 		// 桩必须都给，否则测的不是真实调用形态。
 		llm,
 		webServer,
-		logger: { warn: (message) => warnings.push(String(message)) },
+		logger: { warn: (message) => warnings.push(String(message)), info: () => {} },
+		inject: () => {},
 		get: (name) => {
 			if (name === 'settings') return { get: (ns) => sections[ns] }
 			if (name === 'llm') return llm
