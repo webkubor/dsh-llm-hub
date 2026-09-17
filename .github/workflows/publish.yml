@@ -84,7 +84,7 @@ jobs:
           # 探它等于探错包 —— 本包每个新版都「不存在」，于是重跑 workflow 会再发一次
           # 并撞 npm 的 403「cannot publish over previously published versions」，
           # 把已经成功的一次发布报成失败。2026-09-17 发 0.7.0 前发现。
-          if npm view "@webkubor/dsh-llm-hub@$VER" version >/dev/null 2>&1; then
+          if npm view "@dsh-plugins/dsh-llm-hub@$VER" version >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "v$VER 已在 npm 上，跳过 publish"
           else

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@webkubor/dsh-llm-hub"><img src="https://img.shields.io/npm/v/@webkubor/dsh-llm-hub?style=flat-square&color=4C7EF3&label=npm" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/@dsh-plugins/dsh-llm-hub"><img src="https://img.shields.io/npm/v/@dsh-plugins/dsh-llm-hub?style=flat-square&color=4C7EF3&label=npm" alt="npm" /></a>
   <img src="https://img.shields.io/badge/deps-0-5A9E6F?style=flat-square" alt="zero deps" />
   <img src="https://img.shields.io/badge/license-MIT-777?style=flat-square" alt="MIT" />
   &nbsp;·&nbsp; <a href="README.en.md">English</a> · <a href="CHANGELOG.md">更新日志</a>
@@ -22,10 +22,10 @@ DSH 的模型页上，官方适配器有一半事情没做。这个插件把它�
 ## 装
 
 ```sh
-dsh plugin --profile web add @webkubor/dsh-llm-hub
+dsh plugin --profile web add @dsh-plugins/dsh-llm-hub
 ```
 
-再把 `@webkubor/dsh-llm-hub` 加进 `~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 数组，
+再把 `@dsh-plugins/dsh-llm-hub` 加进 `~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 数组，
 然后 `~/.dsh/restart.sh`。打开**设置 → 模型**，provider 卡片下方会多出一行。
 
 <sub>boot graph 变了必须重启，热载不生效；`cordis.patch.yml` 由 bundle 机制自动 insert。</sub>

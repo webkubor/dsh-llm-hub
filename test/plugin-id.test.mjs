@@ -3,7 +3,7 @@
  *
  * 2026-09-17 踩到：包名迁到 @webkubor/ scope 时（commit f907589）package.json 改了、
  * lib/client.js 里的 `id:` 漏了。宿主按 name 找注册，对不上就报
- *   "loaded without registering @webkubor/dsh-llm-hub via __ModuleLoader__.load"
+ *   "loaded without registering @dsh-plugins/dsh-llm-hub via __ModuleLoader__.load"
  *
  * 为什么必须有断言兜着：DSH 把所有插件打进**同一个 client bundle**，一个注册失败
  * 整个 bundle 一起废 —— 用户看到的是「Failed to load plugins」和一长串包名，

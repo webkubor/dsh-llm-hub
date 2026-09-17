@@ -12,7 +12,7 @@
 
 - insert:
     - id: dsh-llm-hub
-      name: '@webkubor/dsh-llm-hub'
+      name: '@dsh-plugins/dsh-llm-hub'
 
     # ── harness 子代理工具行 ───────────────────────────────────────────────────
     #
