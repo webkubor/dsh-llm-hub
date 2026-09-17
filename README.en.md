@@ -184,7 +184,7 @@ section when one is missing. Requires an `NPM_TOKEN` repository secret.
 A missed or failed publish can be retried without re-pushing the tag:
 
 ```sh
-gh workflow run publish.yml -f tag=v0.6.2
+gh workflow run publish.yml -f tag=v0.6.4
 ```
 
 Idempotency comes from two checks — the tag must match `package.json`'s version, and an

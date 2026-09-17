@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.6.5] - 2026-09-17
+
+### 文档
+
+- README.md / README.en.md：发布示例里 `gh workflow run publish.yml -f tag=v…`
+  的占位 tag 从 `v0.6.2` 改成 `v0.6.4`（跟着当前最新 release 走，避免读者照抄过老版本）。
+
 ## [0.6.4] - 2026-09-17
 
 ### 新增

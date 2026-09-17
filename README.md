@@ -189,7 +189,7 @@ npm run deploy    # 同步到 web profile
 漏发或失败可以手动补，不用重推 tag：
 
 ```sh
-gh workflow run publish.yml -f tag=v0.6.2
+gh workflow run publish.yml -f tag=v0.6.4
 ```
 
 幂等由两道判断保证 —— tag 必须与 `package.json` 的 version 一致；npm 上已有该版本就跳过
