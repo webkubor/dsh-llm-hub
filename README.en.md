@@ -19,6 +19,12 @@ On DSH's Models page, the official adapters leave half the job undone. This plug
 | How many models it serves | invisible | **71 measured** (11 hand-typed) |
 | Why it can't be probed | no hint | **says "no baseURL"** |
 
+<p align="center">
+  <img src="https://img.webkubor.online/oss/dsh-llm-hub/v060/models-piai-cards.png" alt="The models page after install: each provider card gains a row — protocol, endpoint, configured models, balance, with probe and catalog actions on the right" width="100%" />
+  <br />
+  <sub>The models page after install: each provider card gains a row — protocol, endpoint, configured models, balance, with probe and catalog actions on the right</sub>
+</p>
+
 ## Install
 
 ```sh

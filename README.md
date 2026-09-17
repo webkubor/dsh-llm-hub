@@ -19,6 +19,12 @@ DSH 的模型页上，官方适配器有一半事情没做。这个插件把它�
 | 网关上有多少模型 | 看不到 | **实测 71 个**（手填只有 11） |
 | 为什么探测不了 | 无提示 | **写明「没配 baseURL」** |
 
+<p align="center">
+  <img src="https://img.webkubor.online/oss/dsh-llm-hub/v060/models-piai-cards.png" alt="装上之后的模型页：每张 provider 卡片下方多出一行 —— 协议、接入地址、已配模型数、余额，右侧是探测与拉取目录" width="100%" />
+  <br />
+  <sub>装上之后的模型页：每张 provider 卡片下方多出一行 —— 协议、接入地址、已配模型数、余额，右侧是探测与拉取目录</sub>
+</p>
+
 ## 装
 
 ```sh
@@ -59,8 +65,6 @@ DSH 自己已经具备全部机制，缺的只是"官方适配器没去用它们
 - **探测网关**：实时 GET 网关目录端点（`/v1/models` 与 `/models` 按 baseURL 形态自动回退），报告可达性、延迟与在售数量
 - **modelgo 专属**：**拉取目录**列出网关在售模型（实测 71 个，手填仅 11 个），**复制全部 id** 后可直接粘贴整理
 - zai-coding-cn 这类没写 baseURL 的 provider 显示"无法探测"提示，模型仍走手填
-
-![pi-ai 卡片：协议、接入地址、已配模型数、余额/配额，以及探测与目录拉取 —— 事实与动作各占一行](https://img.webkubor.online/oss/dsh-llm-hub/v060/models-piai-cards.png)
 
 ![DeepSeek 卡片上的余额行](https://img.webkubor.online/oss/dsh-llm-hub/v051/models-deepseek-balance.png)
 

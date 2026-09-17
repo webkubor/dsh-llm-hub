@@ -1,6 +1,6 @@
 {
   "name": "@dsh-plugins/dsh-llm-hub",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "description": "给 DSH 模型页补上官方适配器缺的那半：网关可达性探测、模型目录拉取、DeepSeek 余额常驻，以及 MiniMax / 智谱 / Moonshot / StepFun 的余额与配额卡；再把本机装好的 codex / claude / agy 注册成子代理（装了才出现）。零运行时依赖，不改动 DSH 安装。",
   "type": "module",
   "main": "lib/index.js",
