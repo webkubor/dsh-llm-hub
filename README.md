@@ -279,6 +279,29 @@ dsh-llm-hub:
 没暴露 setter；强行模拟键盘事件去点下拉既脆又破可访问性。「提示」+「一键跳」
 的姿势比「替你点」更尊重用户当前的下一步动作。
 
+## 模型别名（1.2.0 起）
+
+把长 model id 翻成短显示名 —— `deepseek-reasoner` 渲染成 `推理 (deepseek-reasoner)`、
+`claude-3.5-sonnet` 渲染成 `Sonnet (claude-3.5-sonnet)`。完整 id 永远在 title 里
+（复制 id 粘到 settings.yaml 时不能是「推理」），但日常切模型眼睛扫得快。
+
+配置（`settings.dsh-llm-hub.aliases`）：
+
+```yaml
+dsh-llm-hub:
+  aliases:
+    'deepseek-official/deepseek-reasoner': '推理'
+    'modelgo/claude-3.5-sonnet': 'Sonnet'
+    'modelgo/gpt-4o': 'GPT-4o'
+```
+
+key 形态：`provider/model`。provider 严格（要去 settings 段查），model 允许
+`.`/`+`（DSH 真实 id 有 `claude-3.5-sonnet`、`deepseek-reasoner` 这种）。
+
+值是空字符串 / 纯空白 / 非字符串 全部过滤；不会让「短名 = 」这种占位塞进 UI。
+
+未配置 aliases 段时 UI 退回只显示 `model.id`，与没装本插件时一致。
+
 ## 外部 harness 子代理（装了才出现）
 
 把**本机已经装好**的外部 agent CLI 注册成 DSH 的子代理提供方，会话里就能把一段独立

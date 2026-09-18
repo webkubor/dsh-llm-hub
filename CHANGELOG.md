@@ -2,6 +2,21 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.0] - 2026-09-17
+
+### 新增
+
+- **模型别名**（`settings.dsh-llm-hub.aliases`）：把长 model id 翻成短显示名，
+  典型场景是 `deepseek-reasoner` → `推理`、`claude-3.5-sonnet` → `Sonnet`。
+  客户端在「拉取目录」picker 里渲染成「短名 (model.id)」（完整 id 永远在 title
+  里 —— 复制 id 粘配置时不能是「推理」）。
+  - key 形态：「provider/model」；两端都必须匹配 provider/model 的合法字符集
+    （provider 严格，model 允许 `.` `+`，适配 DSH 真实 id）
+  - 空值 / 纯空白 / 非字符串值全部过滤，避免「短名 = 」这种占位塞进 UI
+  - 启动时拉一次，所有 picker 行共用一份别名表；卡 mount 后改 settings 不立刻
+    反映（picker 在 catalog 拉完后渲染一次就 freeze）—— 重拉一次目录即可
+  - host 端只读 `GET /api/dsh-llm-hub/aliases`，纯读无需写
+
 ## [1.1.0] - 2026-09-17
 
 ### 新增

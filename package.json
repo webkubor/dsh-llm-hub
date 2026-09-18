@@ -1,6 +1,6 @@
 {
   "name": "@dsh-plugins/dsh-llm-hub",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "DSH 模型管理层：网关可达性探测、模型目录拉取、DeepSeek + MiniMax/智谱/Moonshot/StepFun 余额与配额、本月用量统计、余额预警、Provider 健康看板，再把本机装好的 codex / claude / agy 注册成子代理（装了才出现）。零运行时依赖，不改动 DSH 安装。",
   "type": "module",
   "main": "lib/index.js",
