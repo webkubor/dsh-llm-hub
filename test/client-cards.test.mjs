@@ -157,20 +157,21 @@ const STATUS = {
 	balanceAdapter: null
 }
 
-test('挂载点：两张 provider 卡 + 页脚 + harness 一览 + 用量卡，且不再有逐条重述的可用性面板', () => {
+test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板，且不再有逐条重述的可用性面板', () => {
 	const hub = bootstrap()
 	const mounted = hub.slots.map((slot) => `${slot.name}${slot.id ? '#' + slot.id : ''}${slot.key ? '@' + slot.key : ''}`)
 	assert.deepEqual(mounted.sort(), [
 		'settings.models.footer#dsh-llm-hub-footer',
 		'settings.models.footer#dsh-llm-hub-harness',
+		'settings.models.footer#dsh-llm-hub-health',
 		'settings.models.footer#dsh-llm-hub-usage',
 		'settings.models.provider-card@llm-deepseek',
 		'settings.models.provider-card@llm-pi-ai'
 	].sort())
-	// footer 是 list slot，三个条目靠 id 区分、靠 order 排序（usage 80 / harness 90 / footer 100）。
-	// 漏了 id 会被宿主静默丢弃 —— 接口通、组件在、页面上什么都没有。
+	// footer 是 list slot，四个条目靠 id 区分、靠 order 排序（health 70 / usage 80 /
+	// harness 90 / footer 100）。漏了 id 会被宿主静默丢弃 —— 接口通、组件在、页面上什么都没有。
 	const footer = hub.slots.filter((slot) => slot.name === 'settings.models.footer')
-	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness', 'dsh-llm-hub-usage'])
+	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness', 'dsh-llm-hub-health', 'dsh-llm-hub-usage'])
 	for (const slot of footer) assert.equal(typeof slot.order, 'number', 'list slot 必须给 order')
 	// 面板是初版设计，后来因为与卡片重复被拿掉；这里钉住它不会被顺手加回来。
 	assert.equal(hub.slots.some((slot) => slot.id === 'dsh-llm-hub-availability'), false)
