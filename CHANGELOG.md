@@ -2,6 +2,21 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.1.0] - 2026-09-17
+
+### 新增
+
+- **智能路由建议**（settings → 模型 → 页脚 order 75）：用户声明
+  `routing.primary` + `routing.fallbacks[]`，host 半按当前可用性判定给
+  「该用哪个 + 原因」。
+
+### 变更
+
+- **P1-5（原方案）从「自动切换」改成「建议」** —— DSH 的
+  `conversation.input.model` 是 single + user-controlled slot（`replaceRisk:
+  shadows-shipped-ui`，README 已钉死），宿主没暴露 setter；强行覆盖会撞红线。
+  新方案是「提示 + 引导」，由用户在 UI 里手动切 —— 这才是 DSH 设计边界内的姿势。
+
 ## [1.0.0] - 2026-09-17
 
 从「DSH 模型页补丁」升级到「模型管理层」：插件有了独立的存储与可见的

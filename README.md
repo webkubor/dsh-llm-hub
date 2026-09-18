@@ -224,6 +224,61 @@ dsh-llm-hub:
 「重新探测」按钮复用 `availability.recheck`，与下拉重探同一条底层刷新
 路径 —— 不会双探。
 
+## 智能路由建议（1.1.0 起；原 P1-5 改方案）
+
+DSH 的 `conversation.input.model` 是 **single + user-controlled** slot
+（`replaceRisk: shadows-shipped-ui`，README 已钉死），没有供插件改值的 setter。
+**所以本插件不做自动切换**，只给建议 —— 让你在 Settings 页一眼看到
+「如果现在要切，应该选哪个」。
+
+设置 → 模型 → 页脚 order 75 处的「当前路由」卡：显示当前激活的 (provider, model)
++ 状态 chip、配置里的 primary 与 fallbacks[] 各自的可用状态。当 current 不可用时
+卡片底部高亮「建议切换到 X」；全不可用时给一句人话 reason。
+
+配置（settings.dsh-llm-hub.routing）：
+
+```yaml
+dsh-llm-hub:
+  warning:
+    cashCNY: 10
+    planPercent: 10
+  routing:
+    primary: minimax/abab5.5-chat
+    fallbacks:
+      - deepseek-official/deepseek-chat
+      - modelgo/gpt-4o
+```
+
+请求体（POST `/api/dsh-llm-hub/routing/resolve`）：
+
+```json
+{ "active": "modelgo/gpt-4o" }
+```
+
+返回：
+
+```json
+{
+  "ok": true,
+  "active": { "provider": "modelgo", "model": "gpt-4o", "state": "available" },
+  "candidates": [
+    { "provider": "minimax", "model": "abab5.5-chat", "state": "available" },
+    { "provider": "deepseek-official", "model": "deepseek-chat", "state": "unavailable" },
+    { "provider": "modelgo", "model": "gpt-4o", "state": "available" }
+  ],
+  "recommendation": { "provider": "minimax", "model": "abab5.5-chat" },
+  "reason": null
+}
+```
+
+判定语义：按 primary → fallbacks[] 顺序找第一个 `state === 'available'` 的
+作为 recommendation；全不可用返 null + reason；未配置 routing 返 null +
+「尚未在 settings.dsh-llm-hub.routing 配置主力模型 / fallbacks」。
+
+为什么不做自动切换：DSH 的 composer 下拉是 session-scope 的 single slot，宿主
+没暴露 setter；强行模拟键盘事件去点下拉既脆又破可访问性。「提示」+「一键跳」
+的姿势比「替你点」更尊重用户当前的下一步动作。
+
 ## 外部 harness 子代理（装了才出现）
 
 把**本机已经装好**的外部 agent CLI 注册成 DSH 的子代理提供方，会话里就能把一段独立
