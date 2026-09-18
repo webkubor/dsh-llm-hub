@@ -1,0 +1,39 @@
+name: Bug 反馈
+description: 模型没显示、余额不刷新、网关探测报错
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提之前先看 [README 已知限制](../../blob/main/README.md#已知限制)——
+        `inputModalities` 这类需要在适配器层修的事情本插件兜不住。
+  - type: dropdown
+    id: provider
+    attributes:
+      label: 涉及到的 Provider
+      options:
+        - DeepSeek
+        - 智谱
+        - Moonshot (Kimi)
+        - StepFun (阶跃星辰)
+        - 自定义网关（url 写死的）
+        - 其它
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象
+      description: 看到了什么？预期是什么？
+    validations: { required: true }
+  - type: input
+    id: versions
+    attributes:
+      label: 版本
+      placeholder: dsh-llm-hub 0.7.3 / dsh 0.1.5-rc.2
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: 浏览器控制台 / 启动日志
+      description: 有的话贴上；网关探测类问题这个最关键
+      render: text

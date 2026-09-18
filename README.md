@@ -302,6 +302,42 @@ key 形态：`provider/model`。provider 严格（要去 settings 段查），mo
 
 未配置 aliases 段时 UI 退回只显示 `model.id`，与没装本插件时一致。
 
+## 多账号 key 轮换（1.3.0 起）
+
+同 provider 配多把 key，每次解析连接时按 round-robin 选下一把（避免单把 key
+撞 rate limit / 配额上限）。**不**自动跳过失败 key —— 用户从 debug 卡看到「上次
+失败用的是 X」后，下次请求自然轮换过去；自动跳过失败 key 等 1.4 收集真实失败场景再加。
+
+配置（`settings.dsh-llm-hub.keyPool`）：
+
+```yaml
+dsh-llm-hub:
+  keyPool:
+    deepseek-official:
+      - name: primary
+        env: DEEPSEEK_API_KEY_1
+      - name: backup
+        env: DEEPSEEK_API_KEY_2
+      - name: rotated
+        env: DEEPSEEK_API_KEY_3
+    modelgo:
+      - name: '轮换 A'
+        env: MODELGO_KEY_1
+      - name: '轮换 B'
+        env: MODELGO_KEY_2
+```
+
+每条 entry 是 `{ name, env }`：name 是人话（debug 用），env 是凭据引用的环境变量名。
+host 半直接 `process.env[ref]` 解出来 —— 不走 credentials 服务，因为这些 key
+多半不会进凭据库（轮换场景通常是测试 / 临时 key，手贴环境变量更简单）。
+
+向后兼容：未配 keyPool 段时走旧的 `apiKeyEnv` 单 key 路径，行为完全不变。显式
+覆盖（`request.apiKey`）绕过轮换直接用它，索引不动。
+
+设置 → 模型 → 页脚 order 73 处的「多账号 key 轮换」卡：每行一个 provider +
+「N keys」元信息 + 当前轮到的 key 名（带 `#M / N · HH:MM:SS」的小标，鼠标悬停看 env 名）。
+**不**显示 apiKey 实际值。
+
 ## 外部 harness 子代理（装了才出现）
 
 把**本机已经装好**的外部 agent CLI 注册成 DSH 的子代理提供方，会话里就能把一段独立

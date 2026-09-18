@@ -2,6 +2,31 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-09-17
+
+### 新增
+
+- **多账号 key 轮换**（`settings.dsh-llm-hub.keyPool`）：
+  同一 provider 配多把 key，每次解析连接时按 round-robin 选下一个。
+  配置形如：
+  ```yaml
+  dsh-llm-hub:
+    keyPool:
+      deepseek-official:
+        - name: primary
+          env: DEEPSEEK_API_KEY_1
+        - name: backup
+          env: DEEPSEEK_API_KEY_2
+  ```
+  客户端在「轮换」卡（settings → 模型 → 页脚 order 73）显示每个 provider
+  当前轮到的 key（仅 name + env 名，**不**暴露 apiKey 实际值）。
+  - 向后兼容：未配 keyPool 时走旧的 apiKeyEnv 单 key 路径，行为完全不变
+  - 显式覆盖（`request.apiKey`）绕过轮换，不污染索引
+  - 失败 key **不**自动跳过 —— 用户从 debug 卡能看到「上次失败的是 X」，
+    下次请求自然轮换过去；自动跳过失败 key 等收集真实失败场景再加
+  - 新增 debug 路由 `GET /api/dsh-llm-hub/keypool/status`，让 client 知道当前
+    状态
+
 ## [1.2.0] - 2026-09-17
 
 ### 新增

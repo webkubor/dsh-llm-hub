@@ -1,0 +1,20 @@
+name: 功能建议
+description: 想支持新的 provider / 新的展示卡 / 其它改进
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 想要什么
+    validations: { required: true }
+  - type: textarea
+    id: why
+    attributes:
+      label: 解决什么问题
+      description: 现在是怎么不够用
+    validations: { required: true }
+  - type: markdown
+    attributes:
+      value: |
+        新 provider 支持需要：baseURL、模型目录端点（或静态列表）、可选余额端点。
+        详见 [README「安装自定义网关」](../../blob/main/README.md#安装自定义网关)。
