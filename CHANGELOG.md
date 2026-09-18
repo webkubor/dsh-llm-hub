@@ -2,6 +2,43 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.0.0] - 2026-09-17
+
+从「DSH 模型页补丁」升级到「模型管理层」：插件有了独立的存储与可见的
+健康维度，外部只看到余额和下拉的旧印象不再成立。
+
+### 新增
+
+- **本月用量卡**（settings → 模型 → 页脚 order 80）：
+  host 半从 `llm/stream` 的 `usage` chunk 捕获每次模型调用的 in/out/cache tokens，
+  写进 storageDomain 的 per-record table；client 半按本地日历月聚合，显示
+  「N 次调用 / 输入 X tokens / 输出 Y / 缓存 Z / 合计」+ 前 5 个最常用模型。
+  按钮：「导出 CSV」（复制到剪贴板，用户自己对照官方价目表定价）、
+  「清空记录」（POST + confirm 两段式，避免误删）。
+  不算钱：开源 DSH 没收 chat 文本定价接口，每个 provider 写硬编码价目表
+  既过时又快塌。
+
+- **余额预警**（DeepSeek cash + pi-ai plan/quota）：
+  阈值在 `settings.dsh-llm-hub.warning`（`cashCNY` 默认 10 元、`planPercent`
+  默认 10%）。新加 `/api/dsh-llm-hub/warning/check` 路由，客户端把当前余额信封
+  POST 进去，host 半返回 `{ level: 'low'|null, text }`。阈值数字不进响应
+  （服务端策略，不让前端能关掉）。
+  余额数字低于阈值时变红 + ⚠️ chip（鼠标悬停看具体提示）。
+
+- **Provider 健康看板**（settings → 模型 → 页脚 order 70）：
+  新加 `/api/dsh-llm-hub/health` 路由，返回 availability 全字段 + latencyMs
+  / 上游 HTTP 状态码。每行 provider 名称 + 状态 chip（available/unavailable/
+  unknown 三态配色）+ 延迟 + HTTP + 原因（截断 + title 出全文）+ 探测时间。
+  「重新探测」按钮复用 `availability.recheck`，与下拉重探同一条底层刷新。
+
+### 内部
+
+- `probeDeepseek` / `probePiai` 给每次返回加 `latencyMs` / `status`（之前
+  latency 没存过，HTTP 状态码在 listing 里就丢）
+- storageDomain 用**局部注入**，缺席时本插件其余功能（余额 / 可用性 /
+  harness）照常工作 —— 没有用量统计只是少一张卡，不会让整个 boot 失败
+- `apply` 函数 `inject` 仍是 `['llm', 'webServer']`；新增功能全部走局部注入
+
 ## [0.7.3] - 2026-09-17
 
 ### 新增

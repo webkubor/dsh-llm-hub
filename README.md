@@ -22,10 +22,13 @@ DSH 的模型页上，官方适配器有一半事情没做。这个插件把它�
 | | 官方适配器 | dsh-llm-hub |
 |---|---|---|
 | DeepSeek 有哪些模型 | 看不到 | **一键拉取在售列表** |
-| 账户还剩多少钱 | 看不到 | **卡片下常驻余额** |
-| 网关通不通、多快 | 按钮点了没反应 | **实测延迟与状态** |
+| 账户还剩多少钱 | 看不到 | **卡片下常驻余额 + 阈值预警** |
+| 网关通不通、多快 | 按钮点了没反应 | **实测延迟与状态 + 健康看板** |
 | 网关上有多少模型 | 看不到 | **实测 71 个**（手填只有 11） |
 | 为什么探测不了 | 无提示 | **写明「没配 baseURL」** |
+| 本月花了多少 token | 没有 | **用量统计 + 前 5 个最常用模型 + CSV 导出** |
+| 不可用的 provider | 仍在下拉里 | **下拉里静默摘掉，卡片上标红 + 原因** |
+| 外部 agent CLI（codex/claude/agy） | 装不装无感 | **装了就出现子代理工具** |
 
 <p align="center">
   <img src="https://img.webkubor.online/oss/dsh-llm-hub/v060/models-piai-cards.png" alt="装上之后的模型页：每张 provider 卡片下方多出一行 —— 协议、接入地址、已配模型数、余额，右侧是探测与拉取目录" width="100%" />
@@ -164,6 +167,62 @@ key 过期、余额耗尽、网关 401，都会照常出现在那里，点了才
 后者正是过滤器的输出，拿它当目标，被隐藏的 provider 就再也不会进入下一轮探测，
 「隐藏即永久」。同理，cordis 服务的方法**不能**用 `!==` 校验是否替换成功
 （traceable 代理每次访问都是新对象），要看属性描述符。
+
+## 本月用量（1.0.0 起）
+
+`llm/stream` 的 `usage` chunk 在 finish 之前到达；本插件观察流时把每次
+in / out / cacheRead / cacheWrite tokens 累加，finish 时一次性写入
+storageDomain 的 per-record table。**不算钱** —— 开源 DSH 的 llm 服务只暴露
+`imageRequestPricing`，没有 chat 文本定价接口；给每个 provider 写硬编码价目表
+既过时又快塌。把 token 用量留给用户自己对照官方价目表定价。
+
+设置 → 模型 → 页脚 order 80 处渲染成一张「本月用量」卡：
+输入 / 输出 / 缓存 / 合计 tokens + 调用次数 + 前 5 个最常用模型。
+
+- **导出 CSV**：按钮把全部记录写到剪贴板（id / provider / model / at / 各 token /
+  finished），文件命名 `dsh-llm-hub-usage-YYYY-MM-DD.csv`。
+- **清空记录**：POST + `window.confirm` 两段式，避免被预取或前进后退误删。
+
+storageDomain 用**局部注入** —— 缺席时本插件其余功能（余额 / 可用性 /
+harness）照常工作，没有用量统计只是少一张卡，不会让整个 boot 失败。
+
+## 余额预警（1.0.0 起）
+
+阈值在 `settings.dsh-llm-hub.warning`：
+
+```yaml
+dsh-llm-hub:
+  warning:
+    cashCNY: 10       # DeepSeek / moonshot / stepfun 等 cash 类，CNY 余额下限，默认 10 元
+    planPercent: 10    # minimax / zhipu 等 plan 类，「余量」下限，默认 10%
+```
+
+新加 `/api/dsh-llm-hub/warning/check`：客户端把当前余额信封 POST 进来，host 半
+按阈值判定，返回 `{ level: 'low'|null, text }`。**阈值数字不进响应** ——
+这是服务端策略，不让前端能关掉；也不暴露 USD/USDT 之外的汇率换算细节。
+
+余额数字低于阈值时变红 + 一枚 ⚠️ chip（鼠标悬停看具体提示）：
+「DeepSeek 余额 ¥8.50 低于 10，充值一下」或「minimax 5h 余 8% 低于 10%」。
+
+## Provider 健康看板（1.0.0 起）
+
+设置 → 模型 → 页脚 order 70 处渲染成一张表，每行一个 provider：
+
+| 列 | 含义 |
+|---|---|
+| 名称 | provider id + displayName |
+| 状态 chip | `available`（绿）/ `unavailable`（红）/ `unknown`（灰） |
+| 延迟 | 本次探测 `latencyMs`，探测没成则显示 `—` |
+| HTTP | 上游状态码（401 / 402 / 5xx 一眼可分） |
+| 原因 | 不可用/未知时给一句人话提示（截断 + title 出全文） |
+| 探测时间 | 本地时间 `HH:MM:SS`，方便判断缓存新鲜度 |
+
+数据来源 `/api/dsh-llm-hub/health`：复用 availability 的 verdict，附加
+`latencyMs` 与 `status` 字段。`ensureAvailabilityFresh()` 触发后台重探
+（5 分钟 TTL 过期），不阻塞响应。
+
+「重新探测」按钮复用 `availability.recheck`，与下拉重探同一条底层刷新
+路径 —— 不会双探。
 
 ## 外部 harness 子代理（装了才出现）
 
