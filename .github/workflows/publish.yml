@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # gh release create
+      id-token: write # npm Trusted Publishing via GitHub OIDC
     env:
       # push 事件没有 inputs，取 github.ref_name（= tag 名）；手动触发时用填的那个。
       # 手动触发时用填的 tag；push 事件没有 inputs，`||` 回退到 tag 名。
@@ -39,10 +40,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
+      - name: Ensure OIDC-capable npm
+        run: npm install --global 'npm@^11.5.1'
 
       # 刻意**没有** `npm ci`：本包运行时与开发时都零依赖，也没有 lockfile
       # （ci.yml 里有同样的说明）。这里的三个检查只用 Node 内建能力。
@@ -91,15 +95,10 @@ jobs:
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # 需要在仓库 secret 里配 NPM_TOKEN（Automation 或带 publish 权限的 granular token）。
-      # 注意它救不了账号级问题：2026-09-16 实测 npm 回
-      # 「Your account has been temporarily suspended due to a recent security-sensitive
-      # action」+ 403 —— 那种情况只有本人去 npmjs.com 解除，工作流这边能做的就是别掩盖它。
+      # npm 根据 GitHub OIDC 身份签发短期发布凭据；不再依赖仓库级 NPM_TOKEN。
       - name: npm publish
         if: steps.ver.outputs.published == 'false'
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # 本仓库的 Release 是手建的（没有 release-please），所以这里负责建；但必须幂等：
       # `gh release view` 探到就跳过。bloom-theme 那边踩过的坑是两边都建，
