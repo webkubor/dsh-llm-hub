@@ -2,6 +2,18 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.2] - 2026-09-24
+
+### 🐛 修复与健壮性提升
+
+- **⚡ 解决 MiniMax 等大模型临时限额导致下拉永久死锁问题**：
+  - 核心逻辑解耦：重构可用性过滤判定，严格区分「致命凭据故障（`CREDENTIAL_MISSING` / `AUTH_REJECTED`）」与「临时配额/余额状态（`QUOTA_EXHAUSTED` / `BALANCE_EMPTY` / `PAYMENT_REQUIRED`）」；
+  - 临时配额用尽（如 MiniMax 5 小时滚动配额 / 周配额达到 100% 用量）仅在设置页与状态卡片进行友好 warning 预警，**不再从 `llm.listProviders()` 下拉菜单中强行抹除**；
+  - 彻底破除「额度用尽 → 下拉消失 → 无法选择该模型发请求 → 运行期遥测恢复机制永久无法触发」的死锁链条；
+- **🔄 后台主动保鲜与自愈机制（Auto-healing Probe）**：
+  - 在插件生命周期内新增守护探针轮询（`TTL = 5m`），结合 `.unref()` 保证无副作用后台运行；
+  - 当 MiniMax 5 小时重置窗口或余额恢复后，后台探针自动感知并重置为 `available`，无需手动重启或进入设置页刷新。
+
 ## [1.3.1] - 2026-09-23
 
 ### ✨ UI 视觉升级与极客装配 Hub

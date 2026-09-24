@@ -188,9 +188,9 @@ test('现金余额为 0 → BALANCE_EMPTY', async (t) => {
 	assert.equal(verdict.code, 'BALANCE_EMPTY')
 })
 
-test('配额「余量 0%」→ QUOTA_EXHAUSTED（0 不能被当成没填）', async (t) => {
+test('配额「余量 0%」→ QUOTA_EXHAUSTED（0 不能被当成没填，且不抹除下拉）', async (t) => {
 	// 回归：共用的 capacity() 只认正数，MiniMax 的 current_interval_remaining_percent: 0
-	// 被当成缺字段丢掉，于是「余量为零」的账号照样留在下拉里。
+	// 被当成缺字段丢掉。且 5 小时限额耗尽属于临时状态，绝不能从下拉框抹除导致死锁。
 	process.env.MINIMAX_API_KEY = 'mm-live'
 	globalThis.fetch = async (url) => {
 		const u = String(url)
@@ -206,9 +206,11 @@ test('配额「余量 0%」→ QUOTA_EXHAUSTED（0 不能被当成没填）', as
 	const verdict = verdictOf(host.payload, 'minimax')
 	assert.equal(verdict.state, 'unavailable')
 	assert.equal(verdict.code, 'QUOTA_EXHAUSTED')
+	assert.deepEqual(host.payload.hidden, [], '配额耗尽属于临时限额状态，绝不能进 hidden 抹除下拉')
+	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['minimax'], '配额耗尽的 provider 依然保留在下拉列表中供用户查看与恢复')
 })
 
-test('配额「已用 100%」→ QUOTA_EXHAUSTED（used 语义方向相反）', async (t) => {
+test('配额「已用 100%」→ QUOTA_EXHAUSTED（used 语义方向相反，且不抹除下拉）', async (t) => {
 	process.env.ZAI_CODING_CN_API_KEY = 'zai-live'
 	globalThis.fetch = async (url) => {
 		const u = String(url)
@@ -222,6 +224,7 @@ test('配额「已用 100%」→ QUOTA_EXHAUSTED（used 语义方向相反）', 
 		deepseek: false
 	})
 	assert.equal(verdictOf(host.payload, 'zai-coding-cn').code, 'QUOTA_EXHAUSTED')
+	assert.deepEqual(host.payload.hidden, [], '临时配额用尽不从下拉中抹除')
 })
 
 test('探测没结论（404 / 连不上）→ 一律保留（fail-open）', async (t) => {
@@ -271,6 +274,39 @@ test('被隐藏后仍会被重探 → 能恢复（「隐藏即永久」回归）
 	assert.equal(verdictOf(second, 'minimax').state, 'available', '换好 key 后必须恢复')
 	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['minimax'])
 	assert.equal(reachable, true)
+})
+
+test('MiniMax 5小时限额用尽（QUOTA_EXHAUSTED）不抹除下拉，配额重置后重探恢复', async (t) => {
+	process.env.MINIMAX_API_KEY = 'mm-live'
+	let percent = 0
+	globalThis.fetch = async (url) => {
+		const u = String(url)
+		if (u.includes('minimaxi.com') && u.includes('/models')) return json({ data: [{ id: 'MiniMax-M3' }] })
+		if (u.includes('token_plan/remains')) return json({ model_remains: [{ model_name: 'M3', current_interval_remaining_percent: percent, current_weekly_remaining_percent: 80 }] })
+		throw new Error(`不该请求: ${u}`)
+	}
+	const mod = await import('../lib/index.js')
+	const host = createHost({
+		providers: { minimax: { displayName: 'MiniMax', apiKeyEnv: 'MINIMAX_API_KEY', baseURL: 'https://api.minimaxi.com/v1', models: [{ id: 'MiniMax-M3' }] } },
+		routes: [{ id: 'minimax' }],
+		deepseek: false
+	})
+	t.after(() => host.dispose())
+	mod.apply(host.ctx)
+
+	// 1) 5 小时配额耗尽（0%）
+	const first = (await host.call('/api/dsh-llm-hub/availability/recheck', 'POST')).body
+	assert.equal(verdictOf(first, 'minimax').state, 'unavailable')
+	assert.equal(verdictOf(first, 'minimax').code, 'QUOTA_EXHAUSTED')
+	assert.deepEqual(first.hidden, [], '配额耗尽不加入 hidden')
+	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['minimax'], '下拉菜单依然保留 MiniMax，不死锁')
+
+	// 2) 5 小时过后服务端配额重置（100%）
+	percent = 100
+	const second = (await host.call('/api/dsh-llm-hub/availability/recheck', 'POST')).body
+	assert.equal(verdictOf(second, 'minimax').state, 'available', '配额恢复后状态变绿')
+	assert.equal(verdictOf(second, 'minimax').code, 'OK')
+	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['minimax'])
 })
 
 test('隐藏集合变化时广播 llm/adapters-updated（客户端靠它重拉目录）', async (t) => {
@@ -325,7 +361,7 @@ test('listProviders 被代理包装时也能装上过滤器（!== 假阴性回�
 	assert.deepEqual(wrapped.listProviders().map((p) => p.id), ['minimax'], '过滤器必须真的生效')
 })
 
-test('运行期遥测：鉴权/欠费失败即隐藏，真实请求成功即恢复', async (t) => {
+test('运行期遥测：鉴权失败即隐藏，真实请求成功即恢复', async (t) => {
 	process.env.DEEPSEEK_API_KEY = 'sk-live'
 	globalThis.fetch = async (url) => {
 		const u = String(url)
@@ -336,9 +372,9 @@ test('运行期遥测：鉴权/欠费失败即隐藏，真实请求成功即恢�
 	const host = await boot(t, { providers: {}, routes: [{ id: 'deepseek-official', name: 'DeepSeek' }] })
 	assert.equal(verdictOf(host.payload, 'deepseek-official').state, 'available')
 
-	// 1) 一次真实请求因配额失败 —— 目录探测照样 200，只有这条信号能抓到
+	// 1) 一次真实请求因鉴权失败（401/403）—— 隐藏
 	const onError = host.listeners.get('agent/request-error').fn
-	await onError({ provider: 'deepseek-official', failure: { code: 'QUOTA_EXCEEDED', status: 429 } }, () => Promise.resolve(undefined))
+	await onError({ provider: 'deepseek-official', failure: { code: 'INVALID_CREDENTIAL', status: 401 } }, () => Promise.resolve(undefined))
 	const afterFailure = (await host.call('/api/dsh-llm-hub/availability')).body
 	assert.equal(verdictOf(afterFailure, 'deepseek-official').state, 'unavailable')
 	assert.equal(verdictOf(afterFailure, 'deepseek-official').source, 'runtime')
