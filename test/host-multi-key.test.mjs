@@ -17,24 +17,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { pickRotatedEnv } from '../lib/index.js'
+
 /**
- * 内存复刻 lib/index.js 的 pickRotatedEnv 逻辑 —— keyRotationIndex 是 per-test 的 Map。
+ * 包装 lib/index.js 的 pickRotatedEnv，注入当前测试的独立 stateMap。
  */
 function makePickRotatedEnv(keyRotationIndex) {
-	return (refs, provider) => {
-		if (typeof refs === 'string' && refs.length > 0) {
-			return { ref: refs, index: 0, total: 1 }
-		}
-		if (Array.isArray(refs)) {
-			const list = refs.filter((r) => typeof r === 'string' && r.length > 0)
-			if (list.length === 0) return undefined
-			const current = keyRotationIndex.get(provider) ?? 0
-			const index = current % list.length
-			keyRotationIndex.set(provider, (current + 1) % list.length)
-			return { ref: list[index], index, total: list.length }
-		}
-		return undefined
-	}
+	return (refs, provider) => pickRotatedEnv(refs, provider, keyRotationIndex)
 }
 
 test('pickRotatedEnv: 单 key string —— 永远返同一个 ref', () => {

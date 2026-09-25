@@ -46,5 +46,17 @@ export function recordUsageInto(table: any, entry: any): void
 export function readBounded(response: any, url: string): Promise<string>
 export function maskKey(key: string | null | undefined): string
 
+export interface RotatedEnvResult {
+	ref: string
+	index: number
+	total: number
+}
+
+export function pickRotatedEnv(
+	refs: string | string[] | undefined,
+	provider: string,
+	stateMap?: Map<string, number>
+): RotatedEnvResult | undefined
+
 export function apply(ctx: any): void
 
