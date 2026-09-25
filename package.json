@@ -4,8 +4,10 @@
   "description": "DSH 模型管理层：网关可达性探测、模型目录拉取、DeepSeek + MiniMax/智谱/Moonshot/StepFun 余额与配额、本月用量统计、余额预警、Provider 健康看板，再把本机装好的 codex / claude / agy 注册成子代理（装了才出现）。零运行时依赖，不改动 DSH 安装。",
   "type": "module",
   "main": "lib/index.js",
+  "types": "./types/index.d.ts",
   "exports": {
     ".": {
+      "types": "./types/index.d.ts",
       "default": "./lib/index.js"
     },
     "./client": {
@@ -26,7 +28,7 @@
     }
   },
   "scripts": {
-    "deploy": "rsync -av --delete lib/ ~/.dsh/profiles/web/node_modules/@dsh-plugins/dsh-llm-hub/lib/ && rsync -av package.json cordis.patch.yml README.md README.en.md LICENSE ~/.dsh/profiles/web/node_modules/@dsh-plugins/dsh-llm-hub/",
+    "deploy": "rsync -av --delete lib/ ~/.dsh/profiles/web/node_modules/@dsh-plugins/dsh-llm-hub/lib/ && rsync -av types package.json cordis.patch.yml README.md README.en.md LICENSE ~/.dsh/profiles/web/node_modules/@dsh-plugins/dsh-llm-hub/",
     "preview": "npm run deploy && open http://127.0.0.1:3080",
     "check": "for f in lib/*.js; do node --check \"$f\" || exit 1; done",
     "test": "node --test"
@@ -38,14 +40,21 @@
     "deepseek",
     "model-discovery",
     "balance",
-    "llm",
-    "model-availability",
-    "availability",
+    "quota",
+    "rate-limit",
+    "usage",
+    "tokens",
+    "cost",
+    "dashboard",
+    "routing",
+    "failover",
+    "key-rotation",
+    "api-keys",
+    "harness",
     "subagent",
     "codex",
-    "claude-code",
-    "antigravity",
-    "harness"
+    "claude",
+    "agy"
   ],
   "license": "MIT",
   "repository": {
@@ -65,6 +74,7 @@
     "README.en.md",
     "README.md",
     "cordis.patch.yml",
-    "lib"
+    "lib",
+    "types"
   ]
 }

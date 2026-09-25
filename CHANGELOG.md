@@ -2,6 +2,68 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.4.0] - 2026-09-26
+
+### 🔄 多账号 key 轮换：消除独立配置区域
+
+**用户反馈**：1.3.0 的 `keyPool[provider]` 独立区域是反模式 —— 配置与已有 `apiKeyEnv` 字段脱节，
+需要去一个「多账号 key 轮换」专属 UI 卡才能加第二把 key。**正确做法是让 `apiKeyEnv` 字段直接支持 string[]**——
+DSH 在同一个 provider 字段里多填几把 env 名就完事。
+
+#### 变更
+
+- **新增 `apiKeyEnv` 字段支持 string[]**：`['KEY_1', 'KEY_2', 'KEY_3']` 自动 round-robin。
+- **向后兼容**：旧 string 配置 `apiKeyEnv: 'KEY'` 完全不变。
+- **删除** `settings.dsh-llm-hub.keyPool[provider]` 独立配置区域 —— 1.3.0 引入，1.4.0 收回。
+- **删除** host 半 `keyPoolOf()` / `rotateKeyPool()` 函数 / `keyPoolIndex` / `keyPoolLastChosen` Map。
+- **删除** 路由 `GET /api/dsh-llm-hub/keypool/status`。
+- **删除** client 半 KeyPoolCard / slot `id: dsh-llm-hub-keypool` (order 73) / keyPool locale / keyPool CSS。
+- **保留** `runtimeMarks`（401/403/402/QUOTA_EXCEEDED 失败追踪）—— 失败 key 信息
+  合并进现有可用性看板。
+
+#### 配置示例
+
+```yaml
+llm-deepseek:
+  apiKeyEnv: DEEPSEEK_API_KEY          # 单 key（向后兼容）
+# 或
+llm-deepseek:
+  apiKeyEnv:                            # 多 key 轮换
+    - DEEPSEEK_API_KEY_1
+    - DEEPSEEK_API_KEY_2
+    - DEEPSEEK_API_KEY_3
+```
+
+#### 测试
+
+- **删** `test/host-keypool.test.mjs`（测的是已删的 `keyPoolOf/rotateKeyPool`）
+- **加** `test/host-multi-key.test.mjs`（9 条 case 覆盖 `pickRotatedEnv`）：
+  单 key / 多 key round-robin / 跨 provider 互不干扰 / 空数组 / undefined / null /
+  array 含空字符串 / 全空字符串 / 单元素数组
+- 测试总数 92 → 93
+
+#### 用户故事
+
+| 用户 | 之前（1.3.0） | 现在（1.4.0） |
+|---|---|---|
+| 「给 DeepSeek 加第二把 key」 | 跳到「多账号 key 轮换」独立区 | **同一个 DeepSeek 行的 apiKeyEnv 字段加一行** |
+| 「看现在用的是哪把 key」 | keyPool 卡看 | 健康看板（avail 卡）里 `runtimeMarks` 字段 |
+| 「不用 keyPool」 | 一行多余配置 | 完全没这个概念 |
+
+#### 内部
+
+- 新增 host 函数 `pickRotatedEnv(refs, provider)` —— 输入 string | string[]，返 `{ref, index, total}` 或 undefined。
+- 索引 `keyRotationIndex: Map<provider, number>` 模块级（per-provider 独立 round-robin）。
+- `connectionFacts` 三段解析顺序（向后兼容）：
+  1. `request.apiKey` 一次性覆盖
+  2. `section.apiKeyEnv` 是 string[] → round-robin 取下一个
+  3. `section.apiKeyEnv` 是 string → 旧的单 key 路径
+
+#### 不在 1.4.0 范围
+
+- **失败 key 自动跳过**：1.4.0 收集真实失败场景再加；现在失败 key 信息进 `runtimeMarks` 标记，下一轮探测可看到。
+- **(provider, model) 级轮换**：1.4.0 粒度仍是 provider 级；细化到 model 级的场景待评估（DeepSeek-chat 和 DeepSeek-reasoner 用不同 key 池的需求场景不明确）。
+
 ## [1.3.3] - 2026-09-25
 
 ### ✨ 订阅制配额可视化进度条与重置倒计时

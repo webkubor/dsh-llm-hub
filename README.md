@@ -302,41 +302,50 @@ key 形态：`provider/model`。provider 严格（要去 settings 段查），mo
 
 未配置 aliases 段时 UI 退回只显示 `model.id`，与没装本插件时一致。
 
-## 多账号 key 轮换（1.3.0 起）
+## 多账号 key 轮换（1.4.0 改设计）
 
-同 provider 配多把 key，每次解析连接时按 round-robin 选下一把（避免单把 key
-撞 rate limit / 配额上限）。**不**自动跳过失败 key —— 用户从 debug 卡看到「上次
-失败用的是 X」后，下次请求自然轮换过去；自动跳过失败 key 等 1.4 收集真实失败场景再加。
+### 设计动机
 
-配置（`settings.dsh-llm-hub.keyPool`）：
+**之前（1.3.0）**：`settings.dsh-llm-hub.keyPool[provider] = [{name, env}, ...]` 独立配置区域。
+**1.4.0 改**：用户反馈「何必要单独做一个区域」——`apiKeyEnv` 字段直接支持 string[]，
+DSH 在同一个 provider 字段里多填几把 env 名就完事，**不需要去任何新区域**。
+keyPool 概念 / 独立 slot / 独立 UI 卡 —— 全部删除。
+
+### 配置形态
 
 ```yaml
-dsh-llm-hub:
-  keyPool:
-    deepseek-official:
-      - name: primary
-        env: DEEPSEEK_API_KEY_1
-      - name: backup
-        env: DEEPSEEK_API_KEY_2
-      - name: rotated
-        env: DEEPSEEK_API_KEY_3
-    modelgo:
-      - name: '轮换 A'
-        env: MODELGO_KEY_1
-      - name: '轮换 B'
-        env: MODELGO_KEY_2
+llm-deepseek:
+  apiKeyEnv: DEEPSEEK_API_KEY          # 老写法：1 把 key（向后兼容）
+# 或
+llm-deepseek:
+  apiKeyEnv:                            # 新写法：多把 key 轮换
+    - DEEPSEEK_API_KEY_1
+    - DEEPSEEK_API_KEY_2
+    - DEEPSEEK_API_KEY_3
 ```
 
-每条 entry 是 `{ name, env }`：name 是人话（debug 用），env 是凭据引用的环境变量名。
-host 半直接 `process.env[ref]` 解出来 —— 不走 credentials 服务，因为这些 key
-多半不会进凭据库（轮换场景通常是测试 / 临时 key，手贴环境变量更简单）。
+**用户操作**：在 DSH 设置 → 模型 → DeepSeek 行的「API Key Env」字段，**多填几个 env 名**，
+DSH 自动 round-robin。其它流程（连接、探针、余额、统计）都不变。
 
-向后兼容：未配 keyPool 段时走旧的 `apiKeyEnv` 单 key 路径，行为完全不变。显式
-覆盖（`request.apiKey`）绕过轮换直接用它，索引不动。
+### 行为
 
-设置 → 模型 → 页脚 order 73 处的「多账号 key 轮换」卡：每行一个 provider +
-「N keys」元信息 + 当前轮到的 key 名（带 `#M / N · HH:MM:SS」的小标，鼠标悬停看 env 名）。
-**不**显示 apiKey 实际值。
+- **单 key**（string）：行为与 1.3.0 完全一致 —— `apiKeyEnv: 'DEEPSEEK_API_KEY'`。
+- **多 key**（string[]）：host 半**按 provider 维护 round-robin 索引**，每次解析连接取下一个。
+- **失败 key 不自动跳过** —— 下次请求自然轮换过去。失败信息进 `runtimeMarks`，
+  下次探针会标出来。**不**藏、不假装能用、不静默吞请求。
+- **向后兼容**：所有 1.3.x 之前的配置（单 key）继续工作。
+
+### 为什么删独立的"多账号 key 轮换"UI 卡
+
+1.4.0 之前有一个「多账号 key 轮换」独立 card（在 footer order 73）。**反模式**：
+- 用户故事是「我已经在 DeepSeek 那一行填过 env 名，再加几把就行」，不需要跳到任何新区域。
+- 独立区域让用户看不到**和自己已配 provider 的关联**，新人更难看懂。
+- UI 跟 source-of-truth（settings.yaml 的 `apiKeyEnv` 字段）分离 —— 两份真相。
+
+删了之后：
+- 用户在 ModelsSection 同一个 DeepSeek 行加 env 名 → 多 key 自动轮换
+- debug 信息统一进「健康看板」卡（跟 availability / latency 一起看）
+- 没有「我不知道去哪配置」这种认知成本
 
 ## 外部 harness 子代理（装了才出现）
 

@@ -157,7 +157,7 @@ const STATUS = {
 	balanceAdapter: null
 }
 
-test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板 + 路由 + 轮换，且不再有逐条重述的可用性面板', () => {
+test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板 + 路由，且不再有逐条重述的可用性面板', () => {
 	const hub = bootstrap()
 	const mounted = hub.slots.map((slot) => `${slot.name}${slot.id ? '#' + slot.id : ''}${slot.key ? '@' + slot.key : ''}`)
 	assert.deepEqual(mounted.sort(), [
@@ -165,7 +165,6 @@ test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板
 		'settings.models.footer#dsh-llm-hub-harness',
 		'settings.models.footer#dsh-llm-hub-health',
 		'settings.models.footer#dsh-llm-hub-hero',
-		'settings.models.footer#dsh-llm-hub-keypool',
 		'settings.models.footer#dsh-llm-hub-presets',
 		'settings.models.footer#dsh-llm-hub-routing',
 		'settings.models.footer#dsh-llm-hub-suite',
@@ -173,10 +172,12 @@ test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板
 		'settings.models.provider-card@llm-deepseek',
 		'settings.models.provider-card@llm-pi-ai'
 	].sort())
-	// footer 是 list slot，九个条目靠 id 区分、靠 order 排序（hero 60 / presets 65 / health 70 / keypool 73 /
+	// footer 是 list slot，**八个**条目靠 id 区分、靠 order 排序（hero 60 / presets 65 / health 70 /
 	// routing 75 / usage 80 / harness 90 / footer 100 / suite 110）。漏了 id 会被宿主静默丢弃 —— 接口通、组件在、页面上什么都没有。
+	// **没有 keypool**：1.4.0 起按用户反馈删独立「多账号 key 轮换」卡 —— 多 key 走 `apiKeyEnv` 数组配置，
+	// 轮换状态统一在 connectionFacts 内部，失败信息进 runtimeMarks，不需要单独 debug 路由。
 	const footer = hub.slots.filter((slot) => slot.name === 'settings.models.footer')
-	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness', 'dsh-llm-hub-health', 'dsh-llm-hub-hero', 'dsh-llm-hub-keypool', 'dsh-llm-hub-presets', 'dsh-llm-hub-routing', 'dsh-llm-hub-suite', 'dsh-llm-hub-usage'])
+	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness', 'dsh-llm-hub-health', 'dsh-llm-hub-hero', 'dsh-llm-hub-presets', 'dsh-llm-hub-routing', 'dsh-llm-hub-suite', 'dsh-llm-hub-usage'])
 	for (const slot of footer) assert.equal(typeof slot.order, 'number', 'list slot 必须给 order')
 	// 面板是初版设计，后来因为与卡片重复被拿掉；这里钉住它不会被顺手加回来。
 	assert.equal(hub.slots.some((slot) => slot.id === 'dsh-llm-hub-availability'), false)
