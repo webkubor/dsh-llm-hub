@@ -2,6 +2,25 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.5.1] - 2026-09-26
+
+### 🐛 修复 tarball 漏配 `assets/`
+
+1.5.0 推到 npm 后校验发现 `package.json` 的 `files` 数组没有 `assets/`，导致从 npm 读
+CHANGELOG.md 的人看不到截图（相对路径 `assets/*.svg` 在 tarball 里不存在）。
+
+GH Release 那边**没有**受影响 —— 它解析 tag 时是去仓库拿文件，不是去 tarball，所以 1.5.0
+的 Release 页面渲染图正常。
+
+**没有功能改动**，没有破坏性变更。已装 1.5.0 的用户升级 1.5.1 只会拿到 tarball 多 3 个 SVG
+（约 12 kB），其余字节级一致。
+
+升级命令不变：
+
+```bash
+dsh plugin --profile web add @dsh-plugins/dsh-llm-hub@^1.5.1
+```
+
 ## [1.5.0] - 2026-09-26
 
 > **一句话**：DSH 第一次能从你云端账单数据里分清「套餐 vs 按量」，并把套餐模型自动置顶；
