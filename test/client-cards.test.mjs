@@ -131,6 +131,17 @@ function bootstrap(options = {}) {
 		react._reset(options.seed)
 		return slot.component({ ...slot.inject() })
 	}
+	/**
+	 * 渲染家族 Dock。`options.boot` 决定 client 半从 `window.__DSH_BOOT__` 读到什么：
+	 * 不传 = 这个全局不存在（老宿主 / 非 web 载体）；传数组 = 存在的那份 entries。
+	 */
+	const renderSuite = () => {
+		const slot = slots.find((item) => item.id === 'dsh-llm-hub-suite')
+		if (options.boot === undefined) delete globalThis.window.__DSH_BOOT__
+		else globalThis.window.__DSH_BOOT__ = { rev: 'test', entries: options.boot }
+		react._reset(options.seed)
+		return slot.component({ ...slot.inject() })
+	}
 	return {
 		slots,
 		subscriptions,
@@ -138,6 +149,7 @@ function bootstrap(options = {}) {
 		renderFooter,
 		renderPiai,
 		renderHarness,
+		renderSuite,
 		/** 直接拿可用性存储（页脚注入的就是它） */
 		store: footer.inject().availability
 	}
@@ -157,10 +169,11 @@ const STATUS = {
 	balanceAdapter: null
 }
 
-test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板 + 路由，且不再有逐条重述的可用性面板', () => {
+test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板 + 路由 + composer 路由 chip，且不再有逐条重述的可用性面板', () => {
 	const hub = bootstrap()
 	const mounted = hub.slots.map((slot) => `${slot.name}${slot.id ? '#' + slot.id : ''}${slot.key ? '@' + slot.key : ''}`)
 	assert.deepEqual(mounted.sort(), [
+		'conversation.input.left#dsh-llm-hub-route-chip',
 		'settings.models.footer#dsh-llm-hub-footer',
 		'settings.models.footer#dsh-llm-hub-harness',
 		'settings.models.footer#dsh-llm-hub-health',
@@ -305,4 +318,84 @@ test('harness：可执行文件路径进 tooltip（「装了却不生效」第�
 	const tree = bootstrap({ seed: [HARNESS_REPORT] }).renderHarness()
 	const chip = flatten(tree).find((n) => n && n.props && typeof n.props.title === 'string' && n.props.title.includes('/agy'))
 	assert.ok(chip, '已解析到路径的 harness 必须把路径放进 title')
+})
+
+// ── 家族 Dock：激活判定 ──────────────────────────────────────────────────────
+
+/** 一个 boot graph entry 的最小形状。 */
+const bootEntry = (id) => ({ id, url: `/plugins/??${id}/client.js&rev=x`, rev: 'x' })
+
+test('家族 Dock：四个插件都进 boot graph 时必须亮四个 —— 回归「只有自己亮」', () => {
+	// 这条是 2026-09-26 用户报的 bug：四个都装了、都真的加载了，面板却只亮 LLM Hub 一个。
+	// 根因是判定写死成 `item.isCurrent`，而 isCurrent:true 只写在 LLM Hub 自己那个对象上，
+	// 另外三个压根没这个字段 → 永远 undefined。判定从来没发生过。
+	const hub = bootstrap({
+		boot: [
+			bootEntry('dsh-bloom-theme'),
+			bootEntry('@dsh-plugins/dsh-llm-hub'),
+			bootEntry('@dsh-plugins/dsh-user-mirror'),
+			bootEntry('@dsh-plugins/dsh-env-inspector')
+		]
+	})
+	const tree = hub.renderSuite()
+	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 4, '四个都激活')
+	assert.equal(findByClass(tree, 'dsh-suite-btn-action'), undefined, '一个都不该出现安装按钮')
+})
+
+test('家族 Dock：没装的显示安装按钮，装了的不显示 —— 逐个按真实名单判', () => {
+	const hub = bootstrap({ boot: [bootEntry('dsh-bloom-theme'), bootEntry('@dsh-plugins/dsh-llm-hub')] })
+	const tree = hub.renderSuite()
+	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 2)
+	// 按钮文案是模板串拼的（`⚡ ${t(...)}`），按后缀数而不是全等 —— 前缀符号也是设计的一部分。
+	assert.equal(textsOf(tree).filter((x) => x.endsWith('suiteCopyInstall')).length, 2, '缺的两个给安装按钮')
+})
+
+test('家族 Dock：包名按 aliases 归一 —— scope 改过名也要认得出来', () => {
+	// user-mirror 在 profile 里叫 @dsh-plugins/dsh-user-mirror，仓库叫 dsh-mirror，
+	// 曾经的 row 名是 dsh-mirror。任一形态在 boot graph 里都得算已激活。
+	const hub = bootstrap({ boot: [bootEntry('dsh-mirror')] })
+	const tree = hub.renderSuite()
+	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 1, '短名 dsh-mirror 也算激活')
+})
+
+test('家族 Dock：读不到 __DSH_BOOT__ 时说「判定不可用」，不说「没装」', () => {
+	// 把探测失败渲染成「四个都没装」，人会去重装已经装好的插件 —— 这是谎报，必须区分开。
+	const hub = bootstrap({})
+	const tree = hub.renderSuite()
+	assert.equal(textsOf(tree).filter((x) => x === 'suiteUnknown').length, 4, '四个都标判定不可用')
+	assert.equal(findByClass(tree, 'dsh-suite-btn-action'), undefined, '判定不了时不给安装按钮')
+})
+
+test('家族 Dock：entries 形状不对（不是数组）也走「判定不可用」，不抛异常', () => {
+	for (const boot of [null, 'nonsense', { entries: 'not-an-array' }]) {
+		const hub = bootstrap({ boot })
+		const tree = hub.renderSuite()
+		assert.equal(textsOf(tree).filter((x) => x === 'suiteUnknown').length, 4, `entries=${JSON.stringify(boot)} 应降级`)
+	}
+})
+
+test('家族 Dock：复制出的安装命令必须是能跑的（带 --profile）', () => {
+	// `dsh plugin` 是 pnpm 的透传层，--profile 是必填选项，漏了直接报错退出 ——
+	// 复制出去的命令跑不通，比不给命令更糟。
+	const written = []
+	// Node 24 的 navigator 只有 getter，得用 defineProperty 覆盖而不是直接赋值。
+	Object.defineProperty(globalThis, 'navigator', {
+		configurable: true,
+		value: { clipboard: { writeText: (text) => { written.push(text); return Promise.resolve() } } }
+	})
+	try {
+		const tree = bootstrap({ boot: [] }).renderSuite()
+		findByClass(tree, 'dsh-suite-btn-action').props.onClick()
+		assert.equal(written.length, 1)
+		assert.match(written[0], /^dsh plugin --profile web add @dsh-plugins\//, `实际复制: ${written[0]}`)
+	} finally {
+		Object.defineProperty(globalThis, 'navigator', { configurable: true, value: undefined })
+	}
+})
+
+test('家族 Dock：条目里不再有写死的 isCurrent', () => {
+	// 钉住根因本身：面板源码里不允许再出现按「自己是不是当前插件」来判别人的写法。
+	const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../lib/client.js'), 'utf8')
+	assert.equal(/isCurrent\s*:/.test(source), false, '不允许再写死 isCurrent')
+	assert.equal(/item\.isCurrent/.test(source), false, '不允许再按 isCurrent 判定激活')
 })

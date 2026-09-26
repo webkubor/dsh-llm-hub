@@ -410,3 +410,19 @@ test('availability 只读路由：非 GET 405，跨站 403', async (t) => {
 	assert.equal((await host.call('/api/dsh-llm-hub/availability', 'POST')).status, 405)
 	assert.equal((await host.call('/api/dsh-llm-hub/availability/recheck', 'GET')).status, 405)
 })
+
+test('listProviders 排序：套餐排在上面，按量付费排在下面', async (t) => {
+	const routes = [
+		{ id: 'deepseek-official', name: 'DeepSeek' },
+		{ id: 'opencode-go', name: 'OpenCode Go' },
+		{ id: 'modelgo', name: 'ModelGo 中转' }
+	]
+	const providers = {
+		'opencode-go': { displayName: 'OpenCode Go', baseURL: 'https://opencode.ai/zen/go/v1' },
+		modelgo: { displayName: 'ModelGo 中转', baseURL: 'https://api.modelgo.com' }
+	}
+	const host = await boot(t, { providers, routes, probe: false })
+	const result = host.getLlm().listProviders().map((p) => p.id)
+	assert.deepEqual(result, ['opencode-go', 'deepseek-official', 'modelgo'], '套餐必须优先排在前面')
+})
+
