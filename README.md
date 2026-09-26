@@ -49,6 +49,40 @@ dsh plugin --profile web add @dsh-plugins/dsh-llm-hub
 
 ---
 
+## 最新发布 · v1.5.1 (2026-09-26)
+
+> **一句话**：套餐 vs 按量付费**智能识别 + 手动切换**；LLM 下拉套餐模型**自动置顶**；
+> 修了一个永远只显示「LLM Hub 已激活」的家族面板 bug。
+
+📦 [v1.5.1 on npm](https://www.npmjs.com/package/@dsh-plugins/dsh-llm-hub/v/1.5.1) ·
+🚀 [GitHub Release notes](https://github.com/webkubor/dsh-llm-hub/releases/tag/v1.5.1) ·
+📋 [完整更新日志](./CHANGELOG.md)
+
+三件用户能看到的事：
+
+1. **套餐 vs 按量付费**：每个 provider 卡片新增 billing capsule，左边"按量付费"右边"套餐"，
+   自动按 5 层 fallback 识别云端账单类型（settings → `/status` → `/token_plan/remains`
+   → `/usage/quota/limit` → `/user/balance`），手动点另一边切模式即写回 settings。
+   ![](assets/02-billing-capsule.svg)
+2. **LLM 下拉套餐优先**：composer 模型选择器按当前 provider 的 billingMode 把套餐模型
+   置顶（绿色「套餐」徽章段），按量模型跟在后面。**不**自动改路由、不隐藏按量。
+   ![](assets/03-model-dropdown-priorities.svg)
+3. **家族面板真实激活探测（修 bug）**：设置 → 模型 → 底部「Webkubor DSH 扩展家族」，
+   之前的版本不管装几个插件永远只亮自己。改读 `window.__DSH_BOOT__.entries`
+   做真实激活探测，读不到时显示「判定不可用」而非谎报「没装」。
+   ![](assets/01-family-dock.svg)
+
+升级：
+
+```sh
+dsh plugin --profile web update @dsh-plugins/dsh-llm-hub@^1.5.1
+# 重启 DSH
+```
+
+**没有破坏性变更**。旧版（≤ 1.3.x）的 `keyPool[provider]` 配置在 1.4.0 已删除，所有 key 走 `apiKeyEnv` 数组。
+
+---
+
 ## 它补的是什么
 
 DSH 自己已经具备全部机制，缺的只是"官方适配器没去用它们"：

@@ -2,6 +2,37 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.5.2] - 2026-09-26
+
+### 🔧 发版门禁 + README 推广区
+
+- **`prepublishOnly` 门禁脚本** `scripts/prepublish-gate.mjs`：
+  在 `npm publish` 之前跑三条硬契约 —— tarball 必含 `package.json` / `cordis.patch.yml` /
+  `lib/*.js` / `README.md` / `LICENSE`、必含 `assets/*.svg`、CHANGELOG 顶部必含
+  `## [<当前 version>]` 段。任一条挂了 → `exit 1` → publish 整体失败。
+  跑 check + test + 门禁三件套，缺一不可。
+- **README 新增「最新发布」区**：进 README 30 秒内看到 1.5.1 的三件用户事 + 三张 SVG 缩略图 +
+  npm / GitHub Release / 完整 CHANGELOG 三个直链 + 升级命令 + 破坏性变更说明。
+- **README 双语同步**：英文版 `README.en.md` 不在 1.5.2 范围内（仅中文版挂推广区），
+  保持原样不动 —— 与既有双语策略一致，推广区只挂主语言。
+
+**没有功能改动**，没有破坏性变更。从 1.5.1 升级只是拿到 README 排版与发版前多跑一道门禁。
+
+升级：
+
+```bash
+dsh plugin --profile web update @dsh-plugins/dsh-llm-hub@^1.5.2
+```
+
+### 为什么没做
+
+- 不动英文 README：推广文案与图片需要单独翻译、单独审，1.5.2 走中文单语先行；下一版（1.6.x）做 EN/中英对照。
+- 不在 publish.yml 里加同一道门禁：publish.yml 是 GitHub Actions 那一侧的事，
+  本机 `npm publish` 不走它。门禁必须双侧都加才完整；本版只加了本机侧，Actions 侧的 `tag 与版本一致性 + npm view 探测` 已经在 publish.yml 里。
+  下一步若要也防 GitHub 侧 drift，加一条「`npm view <pkg>@<ver>` 命中即跳过 publish」的 guard
+  已经在 publish.yml 里存在（步骤「校验 tag 与版本一致，并探测 npm」），所以 Actions 侧风险已封。
+- 不动 `npm run deploy`：dev HEAD 已经与 npm 1.5.1 字节一致，profile 升级只走 `dsh plugin update`。
+
 ## [1.5.1] - 2026-09-26
 
 ### 🐛 修复 tarball 漏配 `assets/`
