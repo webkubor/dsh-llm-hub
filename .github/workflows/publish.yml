@@ -94,37 +94,18 @@ jobs:
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # 发版门禁只有一处真源：scripts/prepublish-gate.mjs（本地 `prepublishOnly` 跑的就是它）。
-      # 这里**调用同一个脚本**，而不是在 YAML 里再抄一份文件清单。
+      # 发版门禁不在这里 —— 它只挂在 `package.json#scripts.prepublishOnly` 上，
+      # 而 `npm publish` 一定会执行 prepublishOnly，所以本地发 / CI 发 / 用
+      # `cs kyvault run … -- npm publish` 发走的是同一条路径、同一个脚本。
       #
-      # 为什么这点很重要（2026-09-26）：本步骤原先硬编码了自己的 `need` 数组。
-      # 1.5.0 推上去时 tarball 漏了 `assets/`（package.json#files 忘加），而那个数组里
-      # **根本没写 assets** —— 于是 CI 一路绿、页面上却少三张截图。门禁与真源分叉之后，
-      # 它拦的就不再是「约定」，而是「抄这份清单的人当时想到了什么」。
+      # 2026-09-26 这里曾是第三个副本（外加一段硬编码文件清单的旧 tag 兜底）。
+      # 那种「多处各拦一道」看起来更安全，实际上是把「拦什么」拆成了好几份：
+      # 1.5.0 推上去时 tarball 漏了 `assets/`，硬编码数组里恰好没写 assets，
+      # CI 一路绿而 npm 页面上少三张截图。所以删掉了，真源只剩
+      # CortexOS/scripts/release-gate/prepublish-gate.mjs（各仓一份拷贝，
+      # 漂移由 check-release-gate-sync.mjs 兜）。
       #
-      # 只在真要发版时跑（published == 'false'）：结论「与上一版载荷相同」只在
-      # 「准备发一个新版本」的前提下才构成拒绝理由，对已发布版本是伪命题。
-      # 与本地 prepublishOnly 重复一次是刻意的 —— 让它作为具名步骤出现在日志里，
-      # 且万一有人把 prepublishOnly 从 package.json 摘掉，CI 这一侧仍然拦得住。
-      #
-      # `[ -f ]` 保护：本工作流要能补发旧 tag，而老 tag 树里还没有这个脚本。
-      # 缺了就退回基础清单校验 —— 补发旧版本不该因为「当年还没有门禁」而失败。
-      - name: 发版门禁（与本地 prepublishOnly 同源）
-        if: steps.ver.outputs.published == 'false'
-        run: |
-          if [ -f scripts/prepublish-gate.mjs ]; then
-            node scripts/prepublish-gate.mjs
-          else
-            echo "::warning::本 tag 树里没有 scripts/prepublish-gate.mjs（旧 tag），退回基础产物校验"
-            npm pack --dry-run --json > pack.json
-            node -e "
-              const f = require('./pack.json')[0].files.map(x => x.path)
-              const need = ['package.json', 'cordis.patch.yml', 'lib/client.js', 'lib/index.js', 'lib/harness.js', 'README.md', 'LICENSE']
-              const miss = need.filter(n => !f.includes(n))
-              if (miss.length) { console.error('发布产物缺少: ' + miss.join(', ')); process.exit(1) }
-              console.log('发布产物完整 (' + f.length + ' 个文件)')
-            "
-          fi
+      # 老 tag（树里还没有 prepublishOnly）现在按当年的事实原样发布 —— 那本来就是对的。
 
       # npm 根据 GitHub OIDC 身份签发短期发布凭据；不再依赖仓库级 NPM_TOKEN。
       - name: npm publish

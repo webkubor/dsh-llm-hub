@@ -1,199 +1,202 @@
 #!/usr/bin/env node
 /**
- * prepublish-gate —— 在 `npm publish` 之前把三条硬契约拦在本地。
+ * prepublish-gate —— 发版前的机械门禁（四条契约）
  *
- * 为什么是门禁而不是文档:
- *   2026-09-26 推 1.5.0 时, CHANGELOG 写了、assets/ 落了、版本号 bump 了,
- *   但 package.json 的 files 数组忘了加 'assets' —— 推上 npm 后 122kB
- *   tarball 不含 3 张 SVG, 从 npm 读 CHANGELOG.md 的人看不到截图。
- *   同样那次, 1.5.1 推上去时 publish.yml 在「GH Release」那一步挂了:
- *   CHANGELOG 里没 [1.5.1] 段, 脚本 process.exit(1), 整个 job 标红。
- *   npm publish 已经过 —— 1.5.1 在 npm 上, 但 GH Release 没建, 走到 README
- *   想挂 release link 时发现 404。
+ * 🔴 这个文件是**拷贝**，真源在 CortexOS：
+ *      CortexOS/scripts/release-gate/prepublish-gate.mjs
+ *    同步检查：`node $CORTEXOS_ROOT/scripts/check-release-gate-sync.mjs`
+ *    改逻辑请改真源，然后跑同步脚本把各仓拷一遍 —— 不要在各仓就地改。
  *
- *   两条都是「约定没做成门禁」。本脚本把四条契约变成前置门:
- *     1. tarball 必含 paths in MUST_INCLUDE
- *     2. CHANGELOG 顶部必含 '## [<当前 package.json version>]' 段
- *     3. assets/ 目录里至少有一张 .svg 推广图 (不允许空目录占位)
- *     4. **运行期载荷必须与上一个已发布版本不同** —— 见下方「第 4 条」长注释
+ * 为什么是门禁而不是文档：2026-09-26 一天里给 dsh-llm-hub 发了 1.5.0/1.5.1/1.5.2/1.5.3
+ * 四个版本号，用户可感知的变化只有 1.5.0 一个；同一轮还漏了 bloom-theme 的 assets
+ * （README 引用 11 个相对路径截图、tarball 里 0 个 → npm 页面上全是坏图；那 11 张合计
+ * 10MB，正确修法是换成图床直链而不是把 10MB 塞进每个安装包）。共同点是
+ * 「约定没做成门禁」，所以把判据做成能跑的：
  *
- *   任一条挂了: process.exit(1) + stderr 一行指明错在哪。
+ *   契约 1 产物完整性 —— package.json 必须在；`files` 里每个字面量条目至少命中一个文件；
+ *                       main / types / exports / dsh 引用的相对路径文件必须存在。
+ *   契约 2 图片引用   —— README 里以**相对路径**引用的 assets/* 必须在 tarball 里。
+ *                       否则 npm 页面上是坏图（bloom-theme 就是这么坏的）。
+ *                       只认 `](assets/…)` 与 `src="assets/…"`，不认 URL 里的 assets/
+ *                       （raw.githubusercontent 那种在 npm 上照样能显示，不算坏图）。
+ *   契约 3 CHANGELOG  —— 存在 CHANGELOG.md 时，必含 `## [<当前 version>]` 段。
+ *   契约 4 发版语义   —— 运行期载荷必须与上一个已发布版本**不同**。
+ *                       见 docs/rules/release-semantics.md；ALLOW_METADATA_ONLY=1 是逃生舱。
  *
- *   `npm publish` 调用 prepublishOnly 时, 本脚本非零退出 → publish 整体
- *   失败, tarball 不会被推上 registry, 也就不会出现「npm 上了但本地行为
- *   与预期不一致」的漂移。
+ * 任一条挂了 → exit 1 + stderr 指明错在哪、怎么修。
  */
-import { readFileSync, mkdtempSync, rmSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, mkdtempSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { createHash } from 'node:crypto'
 
+const GATE_VERSION = 1
+
 const here = dirname(fileURLToPath(import.meta.url))
 const pkgRoot = dirname(here)
 
 const pkg = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8'))
 const version = pkg.version
-
-const MUST_INCLUDE = [
-  'package.json',
-  'cordis.patch.yml',
-  'lib/client.js',
-  'lib/index.js',
-  'lib/harness.js',
-  'README.md',
-  'LICENSE'
-]
-
-const ASSETS_MIN = 1 // 至少一张 .svg, 防止目录被空提交
-
 const errors = []
 
-// ── 1. tarball 路径断言 ────────────────────────────────────────────────────
+// ── 0. 打包清单 ────────────────────────────────────────────────────────────
 let packFiles
 try {
   const out = execFileSync('npm', ['pack', '--dry-run', '--json'], {
-    cwd: pkgRoot,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit']
+    cwd: pkgRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit']
   })
   packFiles = JSON.parse(out)[0].files.map(f => f.path)
 } catch (err) {
   console.error('[prepublish-gate] npm pack --dry-run 失败:', err.message)
   process.exit(2)
 }
+const inPack = (p) => packFiles.includes(p)
 
-const missing = MUST_INCLUDE.filter(p => !packFiles.includes(p))
-if (missing.length > 0) {
-  errors.push(`tarball 缺少必含文件: ${missing.join(', ')}\n  → 在 package.json 'files' 数组里列出, 或确认文件实际存在`)
-}
+// ── 1. 产物完整性 ──────────────────────────────────────────────────────────
+if (!inPack('package.json')) errors.push('tarball 里没有 package.json')
 
-// ── 2. assets/ 目录必含至少一张 SVG ─────────────────────────────────────────
-const assetSvgs = packFiles.filter(p => p.startsWith('assets/') && p.endsWith('.svg'))
-if (assetSvgs.length < ASSETS_MIN) {
-  errors.push(`tarball assets/ 里 .svg < ${ASSETS_MIN}: 找到 ${assetSvgs.length} 张\n  → 在 assets/ 下放图, 并确认 package.json 'files' 含 'assets'`)
-}
-
-// ── 3. CHANGELOG 顶部必含 '## [<当前 version>]' 段 ─────────────────────────
-const changelogPath = join(pkgRoot, 'CHANGELOG.md')
-let changelogText
-try {
-  changelogText = readFileSync(changelogPath, 'utf8')
-} catch (err) {
-  errors.push(`CHANGELOG.md 读取失败: ${err.message}`)
-  changelogText = ''
-}
-
-if (changelogText) {
-  const expectedHeader = `## [${version}]`
-  if (!changelogText.includes(expectedHeader)) {
-    errors.push(`CHANGELOG.md 缺少 '${expectedHeader}' 段\n  → publish.yml 的 release body 直接 grep 这一行; 缺了 GH Release 创建会失败, npm 上却有版本号, 出现「npm 上了 / Release 没建」的漂移`)
+// files[] 里的字面量条目（不含 glob）必须命中至少一个文件
+for (const entry of pkg.files ?? []) {
+  if (/[*?[\]{}!]/.test(entry)) continue            // glob 跳过
+  const e = entry.replace(/\/$/, '')
+  const hit = packFiles.some(f => f === e || f.startsWith(e + '/'))
+  if (!hit) {
+    errors.push(`package.json#files 声明了 '${entry}'，但 tarball 里一个文件都没有\n  → 条目过期或文件被删/被 ignore`)
   }
 }
 
-// ── 4. 语义检查: 运行期载荷必须与上一个已发布版本不同 ────────────────────────
-//
-// 为什么需要这一条 (2026-09-26 的教训):
-//   同一天里发了 1.5.0 / 1.5.1 / 1.5.2 / 1.5.3 四个版本号, 但
-//   **用户能感知的变化只有 1.5.0 一个**:
-//     · 1.5.1 修 package.json#files 漏配 assets  → tarball 少 3 张文档 SVG
-//     · 1.5.2 加 prepublishOnly 脚本 + README 推广区 → 纯开发者流程
-//     · 1.5.3 把门禁脚本塞进 tarball + 在 CHANGELOG 里承认之前错 → 纯元数据
-//   三个版本号的「运行期载荷」(lib/ · types/ · cordis.patch.yml · package.json
-//   的运行期字段) **逐字节相同**。semver 号是对用户的契约: 用户从 1.5.0 升到
-//   1.5.3 期待行为有变化, 实际拿到的是同一份代码 —— 这是把流程修补包装成了
-//   版本发布。
-//
-//   所以这里做机械判定, 不靠人自觉: 下载上一个已发布版本的 tarball, 比对
-//   运行期载荷。完全相同 → 这版没有任何用户可感知的变化 → 拒绝。
-//
-//   为什么比对「运行期载荷」而不是「CHANGELOG 里有没有 feat/fix 关键字」:
-//   关键字是启发式的, 自省段落里出现一个「修」字就会误放行 (1.5.3 的
-//   CHANGELOG 里就写着「作者身份纠正(修 1.5.0/1.5.1/1.5.2)」)。
-//   字节比对是确定的。
-//
-//   运行期载荷 = lib/ · types/ · cordis.patch.yml · package.json 的运行期字段
-//   (name/type/main/types/exports/dsh/dependencies/peerDependencies/...)。
-//   刻意排除 version / scripts / files / description / keywords / README /
-//   assets / CHANGELOG —— 那些改了不算行为变化。
-//
-//   逃生舱: 确实需要发一个纯文档版本时, 设 ALLOW_METADATA_ONLY=1 显式放行,
-//   脚本会打印警告。默认拒绝, 需要人主动越过。
+// main / types / module / bin / exports / dsh.bundle 引用的路径必须在 tarball 里。
+// 只走这几个字段，因为 package.json 里别的字符串不是路径 —— 典型陷阱：
+// `dsh.client.platform: "web"` 和 `dsh.client.inject: ["@deepseek-ai/..."]`
+// 一旦被当成路径就会误报。
+const entryPaths = new Set()
+const addPath = (v) => {
+  if (typeof v !== 'string' || v === '') return
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v) || v.startsWith('/')) return   // URL / 绝对路径
+  entryPaths.add(v.replace(/^\.\//, ''))
+}
+const walkStrings = (v) => {
+  if (typeof v === 'string') addPath(v)
+  else if (v && typeof v === 'object') for (const x of Object.values(v)) walkStrings(x)
+}
+for (const field of ['main', 'types', 'module', 'bin', 'exports']) walkStrings(pkg[field])
+if (pkg.dsh && typeof pkg.dsh === 'object') walkStrings(pkg.dsh.bundle)
 
-const RUNTIME_DIRS = ['lib', 'types']
-const RUNTIME_FILES = ['cordis.patch.yml']
-/** package.json 里参与运行期语义的字段; 其余 (version/scripts/files/描述类) 不算。 */
+for (const p of entryPaths) {
+  if (!inPack(p)) {
+    errors.push(`package.json 的入口字段引用了 '${p}'，但 tarball 里没有\n  → 装包的人会在 require/import 时直接失败`)
+  }
+}
+
+// ── 2. README 里相对引用的 assets/* 必须在 tarball 里 ──────────────────────
+const readmes = ['README.md', 'README.en.md', 'README.zh.md', 'README.zh-CN.md']
+  .filter(f => existsSync(join(pkgRoot, f)))
+
+const referencedAssets = new Set()
+for (const f of readmes) {
+  const text = readFileSync(join(pkgRoot, f), 'utf8')
+  // 只认相对引用：](assets/x) 与 src="assets/x"。URL 里的 assets/ 不算。
+  for (const m of text.matchAll(/\]\((assets\/[^)\s]+)\)/g)) referencedAssets.add(m[1])
+  for (const m of text.matchAll(/src=["'](assets\/[^"']+)["']/g)) referencedAssets.add(m[1])
+}
+
+const missingAssets = [...referencedAssets].filter(a => existsSync(join(pkgRoot, a)) && !inPack(a))
+if (missingAssets.length > 0) {
+  errors.push(
+    `README 引用了 ${missingAssets.length} 个 assets 文件，但 tarball 里没有 —— npm 页面上会是坏图:\n` +
+    missingAssets.slice(0, 5).map(a => `    · ${a}`).join('\n') +
+    (missingAssets.length > 5 ? `\n    …（共 ${missingAssets.length} 个）` : '') +
+    `\n  → 二选一：(a) 把 'assets' 加进 package.json 的 'files'（图小就用这个）；` +
+    `\n                (b) 把 README 改成图床绝对 URL 并确认真能打开（图大就用这个，别把十几 MB 塞进每个安装包）`
+  )
+}
+
+// ── 3. CHANGELOG 必须有当前版本段 ──────────────────────────────────────────
+// 标题写法各仓不一（`## [1.5.3]` / `## 3.7.0 (2026-09-16)` /
+// `## [0.14.0](compare-link) (2026-09-25)` / `## v0.14.0`），
+// 只认「二级标题 + 版本号本身」，不强制 keep-a-changelog 的方括号。
+// 版本号后用负向前瞻收尾，避免 0.14.0 命中 0.14.01 这种前缀。
+const changelogPath = join(pkgRoot, 'CHANGELOG.md')
+if (existsSync(changelogPath)) {
+  const text = readFileSync(changelogPath, 'utf8')
+  const esc = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const heading = new RegExp(`^##\\s*\\[?v?${esc}(?![\\d.])`, 'm')
+  if (!heading.test(text)) {
+    errors.push(
+      `CHANGELOG.md 缺少当前版本（${version}）的二级标题段\n` +
+      `  → 发版正文（GitHub Release / npm 页）直接取这一段；缺了会出现「npm 上了 / Release 没建」的漂移`
+    )
+  }
+}
+
+// ── 4. 发版语义：运行期载荷必须与上一已发布版本不同 ────────────────────────
+//
+// 「运行期载荷」= tarball 里**除了文档/元数据/开发工具之外**的每一个文件，
+// 外加 package.json 的运行期字段。判据要能机械执行 —— 不用「CHANGELOG 里有没有
+// feat/fix 关键字」这种启发式（自省段落里出现一个「修」字就会误放行）。
+//
+// 详见 docs/rules/release-semantics.md。
+const EXCLUDE = [
+  /^readme(\.[^/]*)?$/i,
+  /^changelog(\.[^/]*)?$/i,
+  /^(license|notice|contributing)(\.[^/]*)?$/i,
+  /^docs\//i,
+  /^assets\//i,
+  /^scripts\//i,
+  /^\.github\//i,
+  /^\.githooks\//i,
+  /^tsconfig[^/]*\.json$/i,
+  /^(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$/i,
+  /^(screenshots\.json|llms\.txt|dev_notes[^/]*)$/i,
+  /^(\.npmignore|\.gitignore|\.gitattributes)$/i
+]
+const isRuntime = (p) => !EXCLUDE.some(re => re.test(p))
+
 const RUNTIME_PKG_FIELDS = [
-  'name', 'type', 'main', 'types', 'exports', 'dsh',
+  'name', 'type', 'main', 'module', 'types', 'exports', 'bin', 'dsh', 'files',
   'dependencies', 'peerDependencies', 'optionalDependencies', 'engines'
 ]
 
-/** 递归收集 dir 下所有文件的相对路径 → sha256。 */
-function hashDir(root, dir) {
-  const out = new Map()
-  const walk = (rel) => {
-    const abs = join(root, rel)
-    let st
-    try {
-      st = statSync(abs)
-    } catch {
-      return
-    }
-    if (st.isDirectory()) {
-      for (const entry of readdirSync(abs)) walk(join(rel, entry))
-    } else {
-      out.set(rel, createHash('sha256').update(readFileSync(abs)).digest('hex'))
-    }
-  }
-  walk(dir)
-  return out
-}
-
 /** 运行期载荷指纹: 排序后的 "路径:哈希" 列表。 */
-function runtimeFingerprint(root) {
+function runtimeFingerprint(root, list) {
   const entries = []
-  for (const dir of RUNTIME_DIRS) {
-    for (const [rel, hash] of hashDir(root, dir)) entries.push([rel, hash])
-  }
-  for (const file of RUNTIME_FILES) {
+  for (const rel of list) {
+    if (!isRuntime(rel)) continue
+    if (rel === 'package.json') continue
     try {
-      entries.push([file, createHash('sha256').update(readFileSync(join(root, file))).digest('hex')])
-    } catch {
-      // 缺文件本身由第 1 条契约负责报错, 这里不重复
-    }
+      entries.push([rel, createHash('sha256').update(readFileSync(join(root, rel))).digest('hex')])
+    } catch { /* 目录项或读不到，跳过 */ }
   }
   try {
     const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
     const runtimePkg = {}
-    for (const field of RUNTIME_PKG_FIELDS) {
-      if (manifest[field] !== undefined) runtimePkg[field] = manifest[field]
+    for (const f of RUNTIME_PKG_FIELDS) {
+      if (manifest[f] !== undefined) runtimePkg[f] = manifest[f]
     }
-    entries.push(['package.json(runtime)', createHash('sha256').update(JSON.stringify(runtimePkg)).digest('hex')])
-  } catch {
-    // 同上, package.json 读不了是别处的问题
-  }
+    entries.push(['package.json(运行期字段)', createHash('sha256').update(JSON.stringify(runtimePkg)).digest('hex')])
+  } catch { /* 读不到是别处的问题 */ }
   return entries.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
 }
 
 if (process.env.ALLOW_METADATA_ONLY === '1') {
-  console.warn('[prepublish-gate] ⚠️  ALLOW_METADATA_ONLY=1 —— 跳过第 4 条语义检查 (纯文档/元数据版本)')
+  console.warn('[prepublish-gate] ⚠️  ALLOW_METADATA_ONLY=1 —— 跳过契约 4（纯文档/元数据版本）')
 } else {
   try {
-    const versionsRaw = execFileSync('npm', ['view', pkg.name, 'versions', '--json'], {
+    const raw = execFileSync('npm', ['view', pkg.name, 'versions', '--json'], {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']
     })
-    const published = JSON.parse(versionsRaw)
-    const list = Array.isArray(published) ? published : [published]
+    const parsed = JSON.parse(raw)
+    const list = Array.isArray(parsed) ? parsed : [parsed]
     const previous = list.filter(v => v !== version).pop()
 
     if (previous === undefined) {
-      console.log(`[prepublish-gate]   · 第 4 条: ${pkg.name} 尚无更早版本, 跳过载荷比对`)
+      console.log(`[prepublish-gate]   · 契约 4: ${pkg.name} 尚无更早版本, 跳过载荷比对`)
     } else {
       const tarballUrl = execFileSync('npm', ['view', `${pkg.name}@${previous}`, 'dist.tarball'], {
         encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']
       }).trim()
-
       const stage = mkdtempSync(join(tmpdir(), 'prepublish-gate-'))
       try {
         const tgz = join(stage, 'prev.tgz')
@@ -202,34 +205,45 @@ if (process.env.ALLOW_METADATA_ONLY === '1') {
         const { writeFileSync } = await import('node:fs')
         writeFileSync(tgz, Buffer.from(await res.arrayBuffer()))
         execFileSync('tar', ['-xzf', tgz, '-C', stage], { stdio: 'ignore' })
-
         const prevRoot = join(stage, 'package')
-        const before = runtimeFingerprint(prevRoot)
-        const after = runtimeFingerprint(pkgRoot)
-        const same = JSON.stringify(before) === JSON.stringify(after)
 
-        if (same) {
-          const changedOnly = packFiles
-            .filter(p => !p.startsWith('lib/') && !p.startsWith('types/') && !['cordis.patch.yml', 'package.json'].includes(p))
-            .slice(0, 6)
+        const before = runtimeFingerprint(prevRoot, collectAllFiles(prevRoot))
+        const after = runtimeFingerprint(pkgRoot, packFiles)
+        if (JSON.stringify(before) === JSON.stringify(after)) {
           errors.push(
             `运行期载荷与上一个已发布版本 ${previous} **完全相同** —— 这个 semver 号没有承载任何用户可感知的变化\n` +
-            `  → 本次只动了: ${changedOnly.join(', ') || '(仅 package.json 的非运行期字段)'}\n` +
-            `  → semver 是对用户的契约: 流程修补 / 元数据修正 / 自省笔记不该占版本号。\n` +
-            `     流程元数据类改动请不要发版 (改了 dev 仓即可); 确实要发纯文档版时显式设 ALLOW_METADATA_ONLY=1`
+            `  → 本次只动了: ${packFiles.filter(p => !isRuntime(p)).slice(0, 6).join(', ') || '(仅 package.json 非运行期字段)'}\n` +
+            `  → semver 是对用户的契约: 流程修补 / 元数据修正 / 自省笔记不该占版本号（docs/rules/release-semantics.md）。\n` +
+            `     确实要发纯文档版时显式设 ALLOW_METADATA_ONLY=1`
           )
         } else {
-          console.log(`[prepublish-gate]   · 第 4 条: 运行期载荷相对 ${previous} 有变化 (${before.length} 项比对)`)
+          console.log(`[prepublish-gate]   · 契约 4: 运行期载荷相对 ${previous} 有变化（${before.length} 项比对）`)
         }
       } finally {
         rmSync(stage, { recursive: true, force: true })
       }
     }
   } catch (err) {
-    // 网络/registry 不可用时不阻断发版: 发版门禁不该因为一次查询失败而卡住
-    // 真实发布。降级为警告, 把「这台机器没验成」说清楚。
-    console.warn(`[prepublish-gate] ⚠️  第 4 条未能执行 (不阻断): ${err.message}`)
+    // 网络/registry 不可用时不阻断发版：门禁不该因为一次查询失败就卡住真实发布。
+    console.warn(`[prepublish-gate] ⚠️  契约 4 未能执行（不阻断）: ${err.message}`)
   }
+}
+
+/** 递归收集目录下所有文件（相对路径），用于对上一版本解包目录做指纹。 */
+function collectAllFiles(root) {
+  const out = []
+  const walk = (rel) => {
+    const abs = rel ? join(root, rel) : root
+    let st
+    try { st = statSync(abs) } catch { return }
+    if (st.isDirectory()) {
+      for (const e of readdirSync(abs)) walk(rel ? join(rel, e) : e)
+    } else {
+      out.push(rel)
+    }
+  }
+  walk('')
+  return out
 }
 
 // ── 报告 ──────────────────────────────────────────────────────────────────
@@ -243,6 +257,7 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`[prepublish-gate] ✓ @${pkg.name}@${version} 四条契约通过`)
-console.log(`[prepublish-gate]   · tarball: ${packFiles.length} 个文件, 含 ${assetSvgs.length} 张 assets/*.svg`)
-console.log(`[prepublish-gate]   · CHANGELOG 含 '## [${version}]' 段`)
+console.log(`[prepublish-gate] ✓ ${pkg.name}@${version} 四条契约通过（gate v${GATE_VERSION}）`)
+console.log(`[prepublish-gate]   · tarball ${packFiles.length} 个文件；运行期载荷 ${packFiles.filter(isRuntime).length} 个`)
+if (referencedAssets.size > 0) console.log(`[prepublish-gate]   · README 引用的 ${referencedAssets.size} 个 assets 均在包内`)
+console.log(`[prepublish-gate]   · CHANGELOG 含当前版本段`)
