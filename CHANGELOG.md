@@ -2,6 +2,44 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.5.3] - 2026-09-26
+
+### 🛂 工程纪律对齐
+
+#### 发版脚本 + tarball 收齐
+
+- `scripts/prepublish-gate.mjs` 列入 `package.json#files`，随 tarball 出厂（1.5.2 时漏配）。
+- 这条本身没功能改动，单纯是「门禁脚本要在 tarball 里」的一致性修补。
+
+#### 作者身份纠正（修 1.5.0/1.5.1/1.5.2 的提交）
+
+**根因**：1.5.0/1.5.1/1.5.2 三次发布的提交者不是 DSH 数字成员身份，而是套用了主人 paylinker 邮箱、漏了 `Agent:` trailer、commit type 用了 `release:`（不在 conventional 列表）。违反：
+
+- `commit_convention §1`：数字成员用自己的 D1 email，禁止套主人邮箱。
+- `commit_convention §1.5`：本机 CLI 提交必须带 `Agent: cli:<id>` trailer。
+- `commit_convention §2`：commit type 必须是 `feat / fix / refactor / chore / docs / style / test / ci / perf`。
+- `external-cli-layering`：GitHub 操作应该走 L1 `gh` CLI 而不是 L3 `curl`。
+
+**为什么 1.5.0/1.5.1/1.5.2 不改**：tag 已发布、npm tarball 不可变、GH Release body 已建，回滚会
+让那一批点升级的用户装不到。本版只**纠正未来**：
+
+- 1.5.3 起 commit author 署 `DSH <dsh@webkubor.online>`（D1 上的 agent 身份）。
+- trailer：`Agent: cli:claude-code`。
+- commit type 用 conventional 写法 `chore(release):`。
+- GH 操作走 `gh` CLI。
+
+**为什么这次保留 `dsh-llm-hub` 的工作流**：1.5.0/1.5.1/1.5.2 的 commit 内容、CHANGELOG、assets/ 都是
+对的，错的只是元数据（author / trailer / type）。元数据修一遍不影响业务，下次升级自然拉到
+1.5.3 的内容。
+
+**没有破坏性变更**，没有功能改动。
+
+升级：
+
+```bash
+dsh plugin --profile web update @dsh-plugins/dsh-llm-hub@^1.5.3
+```
+
 ## [1.5.2] - 2026-09-26
 
 ### 🔧 发版门禁 + README 推广区
