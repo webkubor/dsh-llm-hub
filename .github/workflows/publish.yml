@@ -63,14 +63,33 @@ jobs:
           # 老版本」在第一步就失败（实测：v0.6.1 报 Missing script: test）。
           # 0.6.2 起每个 tag 都带测试，所以正常发版路径上这道闸门依然是实的。
           npm test --if-present
-          npm pack --dry-run --json > pack.json
-          node -e "
-            const f = require('./pack.json')[0].files.map(x => x.path)
-            const need = ['package.json', 'cordis.patch.yml', 'lib/client.js', 'lib/index.js', 'lib/harness.js', 'README.md', 'LICENSE']
-            const miss = need.filter(n => !f.includes(n))
-            if (miss.length) { console.error('发布产物缺少: ' + miss.join(', ')); process.exit(1) }
-            console.log('发布产物完整 (' + f.length + ' 个文件)')
-          "
+
+      # 发版门禁只有一处真源：scripts/prepublish-gate.mjs（本地 `prepublishOnly` 跑的就是它）。
+      # 这里**调用同一个脚本**，而不是在 YAML 里再抄一份文件清单。
+      #
+      # 为什么这点很重要（2026-09-26）：本步骤原先硬编码了自己的 `need` 数组。
+      # 1.5.0 推上去时 tarball 漏了 `assets/`（package.json#files 忘加），而那个数组里
+      # **根本没写 assets** —— 于是 CI 一路绿、页面上却少三张截图。门禁与真源分叉之后，
+      # 它拦的就不再是「约定」，而是「抄这份清单的人当时想到了什么」。
+      #
+      # `[ -f ]` 保护：本工作流要能补发旧 tag，而老 tag 树里还没有这个脚本。
+      # 缺了就退回下面的基础清单校验 —— 补发旧版本不该因为「当年还没有门禁」而失败，
+      # 但**新版本必须过全部门禁**（含运行期载荷比对与 CHANGELOG 段检查）。
+      - name: 发版门禁（与本地 prepublishOnly 同源）
+        run: |
+          if [ -f scripts/prepublish-gate.mjs ]; then
+            node scripts/prepublish-gate.mjs
+          else
+            echo "::warning::本 tag 树里没有 scripts/prepublish-gate.mjs（旧 tag），退回基础产物校验"
+            npm pack --dry-run --json > pack.json
+            node -e "
+              const f = require('./pack.json')[0].files.map(x => x.path)
+              const need = ['package.json', 'cordis.patch.yml', 'lib/client.js', 'lib/index.js', 'lib/harness.js', 'README.md', 'LICENSE']
+              const miss = need.filter(n => !f.includes(n))
+              if (miss.length) { console.error('发布产物缺少: ' + miss.join(', ')); process.exit(1) }
+              console.log('发布产物完整 (' + f.length + ' 个文件)')
+            "
+          fi
 
       # tag 名必须与 package.json version 一致，防止「tag 是 v0.6.2、发的却是 0.6.1」；
       # 同时探测该版本是否已在 npm 上 —— 重推同一 tag / 重复点手动发布时不报错、不重发。
