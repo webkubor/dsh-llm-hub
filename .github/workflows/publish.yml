@@ -55,7 +55,7 @@ jobs:
       # 于是 `sh: 1: contrast-guard: not found`、tag 打出去了 npm 没发成）。
       # 结论：发布工作流的安装步骤要按**本仓库**的依赖事实写，不能互抄。
 
-      - name: 语法 + 回归测试 + 发布产物校验
+      - name: 语法 + 回归测试
         run: |
           npm run check
           # `--if-present`：这个工作流也用来**补发旧 tag**（workflow_dispatch），而
@@ -64,35 +64,15 @@ jobs:
           # 0.6.2 起每个 tag 都带测试，所以正常发版路径上这道闸门依然是实的。
           npm test --if-present
 
-      # 发版门禁只有一处真源：scripts/prepublish-gate.mjs（本地 `prepublishOnly` 跑的就是它）。
-      # 这里**调用同一个脚本**，而不是在 YAML 里再抄一份文件清单。
-      #
-      # 为什么这点很重要（2026-09-26）：本步骤原先硬编码了自己的 `need` 数组。
-      # 1.5.0 推上去时 tarball 漏了 `assets/`（package.json#files 忘加），而那个数组里
-      # **根本没写 assets** —— 于是 CI 一路绿、页面上却少三张截图。门禁与真源分叉之后，
-      # 它拦的就不再是「约定」，而是「抄这份清单的人当时想到了什么」。
-      #
-      # `[ -f ]` 保护：本工作流要能补发旧 tag，而老 tag 树里还没有这个脚本。
-      # 缺了就退回下面的基础清单校验 —— 补发旧版本不该因为「当年还没有门禁」而失败，
-      # 但**新版本必须过全部门禁**（含运行期载荷比对与 CHANGELOG 段检查）。
-      - name: 发版门禁（与本地 prepublishOnly 同源）
-        run: |
-          if [ -f scripts/prepublish-gate.mjs ]; then
-            node scripts/prepublish-gate.mjs
-          else
-            echo "::warning::本 tag 树里没有 scripts/prepublish-gate.mjs（旧 tag），退回基础产物校验"
-            npm pack --dry-run --json > pack.json
-            node -e "
-              const f = require('./pack.json')[0].files.map(x => x.path)
-              const need = ['package.json', 'cordis.patch.yml', 'lib/client.js', 'lib/index.js', 'lib/harness.js', 'README.md', 'LICENSE']
-              const miss = need.filter(n => !f.includes(n))
-              if (miss.length) { console.error('发布产物缺少: ' + miss.join(', ')); process.exit(1) }
-              console.log('发布产物完整 (' + f.length + ' 个文件)')
-            "
-          fi
-
       # tag 名必须与 package.json version 一致，防止「tag 是 v0.6.2、发的却是 0.6.1」；
       # 同时探测该版本是否已在 npm 上 —— 重推同一 tag / 重复点手动发布时不报错、不重发。
+      #
+      # 🔴 这一步必须排在发版门禁**之前**：门禁里的「运行期载荷比对」只在
+      # 「马上要发一个新版本」这个前提下才有意义。对一个**已经发布过**的版本，
+      # 它必然判定「与上一版载荷相同」而拒绝 —— 于是会把下面那条被刻意保护的场景
+      # 一起拦死：「npm 已发成功、GitHub Release 却没建起来，需要补建」。
+      # 2026-09-26 我第一版就犯了这个错：门禁挂在 ver 之前，v1.5.3 补建 Release
+      # 会在门禁步直接 exit 1（实测复现过），而那时根本不需要发 npm。
       - name: 校验 tag 与版本一致，并探测 npm
         id: ver
         run: |
@@ -112,6 +92,38 @@ jobs:
             echo "v$VER 已在 npm 上，跳过 publish"
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 发版门禁只有一处真源：scripts/prepublish-gate.mjs（本地 `prepublishOnly` 跑的就是它）。
+      # 这里**调用同一个脚本**，而不是在 YAML 里再抄一份文件清单。
+      #
+      # 为什么这点很重要（2026-09-26）：本步骤原先硬编码了自己的 `need` 数组。
+      # 1.5.0 推上去时 tarball 漏了 `assets/`（package.json#files 忘加），而那个数组里
+      # **根本没写 assets** —— 于是 CI 一路绿、页面上却少三张截图。门禁与真源分叉之后，
+      # 它拦的就不再是「约定」，而是「抄这份清单的人当时想到了什么」。
+      #
+      # 只在真要发版时跑（published == 'false'）：结论「与上一版载荷相同」只在
+      # 「准备发一个新版本」的前提下才构成拒绝理由，对已发布版本是伪命题。
+      # 与本地 prepublishOnly 重复一次是刻意的 —— 让它作为具名步骤出现在日志里，
+      # 且万一有人把 prepublishOnly 从 package.json 摘掉，CI 这一侧仍然拦得住。
+      #
+      # `[ -f ]` 保护：本工作流要能补发旧 tag，而老 tag 树里还没有这个脚本。
+      # 缺了就退回基础清单校验 —— 补发旧版本不该因为「当年还没有门禁」而失败。
+      - name: 发版门禁（与本地 prepublishOnly 同源）
+        if: steps.ver.outputs.published == 'false'
+        run: |
+          if [ -f scripts/prepublish-gate.mjs ]; then
+            node scripts/prepublish-gate.mjs
+          else
+            echo "::warning::本 tag 树里没有 scripts/prepublish-gate.mjs（旧 tag），退回基础产物校验"
+            npm pack --dry-run --json > pack.json
+            node -e "
+              const f = require('./pack.json')[0].files.map(x => x.path)
+              const need = ['package.json', 'cordis.patch.yml', 'lib/client.js', 'lib/index.js', 'lib/harness.js', 'README.md', 'LICENSE']
+              const miss = need.filter(n => !f.includes(n))
+              if (miss.length) { console.error('发布产物缺少: ' + miss.join(', ')); process.exit(1) }
+              console.log('发布产物完整 (' + f.length + ' 个文件)')
+            "
           fi
 
       # npm 根据 GitHub OIDC 身份签发短期发布凭据；不再依赖仓库级 NPM_TOKEN。
