@@ -2,6 +2,137 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.5.0] - 2026-09-26
+
+> **一句话**：DSH 第一次能从你云端账单数据里分清「套餐 vs 按量」，并把套餐模型自动置顶；
+> 同时把家族面板那个"永远只亮自己"的 bug 修了。
+
+### Why this version
+
+从 1.4.0 之后，用户最痛的三件事：
+
+1. **账单类型看不清** —— DeepSeek / ModelGo / 智谱现在绝大多数都有「订阅套餐 + 按量付费」两套价。
+   LLM Hub 之前只查 `/user/balance` 拿一个浮点余额，分不出你这月花的是套餐里的还是按量烧的，
+   你下拉里看到的所有模型都长得一样。
+2. **下拉优先级看运气** —— 套餐明明是月费、不再额外扣钱，结果按量模型排在前面一不小心就发了，
+   这个月账单超支才反应过来。
+3. **家族面板自相矛盾** —— 设置 → 模型 底下那张「Webkubor DSH 扩展家族」，
+   写死了 `isCurrent:true` 在自己那一行，于是不管你有没有装另外三个插件，
+   **永远只显示 LLM Hub 一个已激活**。
+
+1.5.0 三件事一次性解决。同时把 provider 排序逻辑从可用性状态机里**解耦**出来
+（重构，外面看不见），保证下一版再加新 provider 时，账单识别不会拖死总闸门。
+
+### 🌟 重点 1/3 — 套餐 vs 按量付费：智能识别 + 手动切换
+
+**用户看到的**：每个 provider 卡上多了一颗胶囊（capsule），左边"按量付费"右边"套餐"，
+胶囊外面那颗 pill 表示「系统认为这个 provider 当前是哪种账单」。
+鼠标点另一边切模式，写回 settings；下次启动自动套用。
+
+![套餐 vs 按量付费胶囊 · Billing Capsule](assets/02-billing-capsule.svg)
+*设置 → 模型 → 任一 provider 卡 · 切换胶囊即写回 settings*
+
+**自动识别怎么做的**（三层 fallback，从硬到软）：
+
+| 层 | 来源 | 命中条件 |
+|---|---|---|
+| 1. 用户在 settings 里显式写了 `billingMode: subscription` | `settings.dsh-llm-hub.providers[ns].billingMode` | 直接认 |
+| 2. provider 自检 `/status` 报告 `billingMode` 字段 | `/api/dsh-llm-hub/pi-ai/status` 响应 | 直接认 |
+| 3. `/token_plan/remains` 或 `/api/monitor/usage/quota/limit` 命中套餐特征 | has `resetsAt` / `weeklyPercent` / 含「5h / 周 / 月」标签 / 有 `percent` + `meaning` | 推为套餐 |
+| 4. `/user/balance` 返回 `kind:'plan' \| 'quota'` | `/api/dsh-llm-hub/balance` | 推为套餐 |
+| 5. 都没命中 | — | 默认 `usage`（按量付费） |
+
+**为什么不是默认套餐**：套餐是「绑定卡片的月费」，按量是「用了才扣钱」。
+如果一个 provider 只卖按量付费（很多小厂），错认成套餐会导致余额进度条永远 0%。
+所以严格命中多层证据才推套餐，按量是默认。
+
+### 🌟 重点 2/3 — LLM 下拉优先套餐
+
+**用户看到的**：composer 模型下拉被切成两段，上面那颗带绿色「套餐」徽章的就是优先段，
+下面蓝色「按量」是补充。鼠标点模型行直接派活。
+
+![模型下拉套餐优先 · Model Dropdown Priorities](assets/03-model-dropdown-priorities.svg)
+*composet 模型下拉 · 套餐模式识别后自动置顶*
+
+**这个改动没改模型本身**：模型列表来自 `llm.listConfigurableProviders()` 的官方源；
+只是**渲染分组顺序**按当前 provider 的 `billingMode` 重排。
+
+> **不**做的事：
+> - 不自动改路由或默认模型 —— 用户点哪条还是走哪条
+> - 不隐藏按量模型 —— 套餐用完了用户要能立刻往下走，不会找不到按量
+
+### 🌟 重点 3/3 — 家族面板：真实激活探测（修 bug）
+
+**之前的 bug**：设置 → 模型 → 底部「Webkubor DSH 扩展家族」面板，无论你装了四个家族插件还是
+只装了一个，永远只显示「LLM Hub 已激活」，其他三个永远是「复制安装」按钮。
+
+**根因**：判定写死成 `const isInstalled = item.isCurrent`，
+而 `isCurrent:true` 只写在 LLM Hub 自己那个条目上 —— 也就是说**根本没探测过**，
+不是探测失败。
+
+**修法**：判定改读宿主注入的 `window.__DSH_BOOT__.entries` —— 那份是浏览器要真加载的组合图，
+比「读 profile 的 package.json」更硬（装过 ≠ 接进 boot graph，少了 `dsh.profile.bundles`
+那一行，依赖装了也不会被加载）。
+
+读不到时（保留旧版 / 非 web 载体）显示「判定不可用」，**不**谎报成「没装」——
+否则用户会去重装一个其实装好的插件。
+
+![家族面板 · 四个插件都亮](assets/01-family-dock.svg)
+*设置 → 模型 → 底部「Webkubor DSH 扩展家族」 · 四个都装的情况下全亮*
+
+**顺带修的真 bug**：复制出去的安装命令原本是 `dsh plugin install <pkg>` —— 但 `dsh plugin`
+是 pnpm 的透传层，`--profile` 是必填项，漏了直接报错退出。
+现改成 `dsh plugin --profile web add <pkg>`，分享文案里的第 2 步也纠正了。
+
+### ⚙️ 内部
+
+- `provider-sorter` 从 `availability-store` 抽出（refactor: 解耦 provider-sorter 排序决策与
+  availability-store 网关状态机）：排序是个纯函数、状态机是个有副作用的服务，两者不再耦合，
+  意味着下一版加新 provider 不会把整个状态机的 probe 链拖一遍。
+- `lib/availability-store.js` 与 `lib/sorter.js` 是这次拆出的两个新文件，各自独立测试。
+- `lib/index.js` 删除 141 行、抽出 106 行进 sorter；总计净增加可测面。
+
+### 🧪 测试
+
+| 测试套 | 之前 | 现在 |
+|---|---:|---:|
+| 总数 | 100 | **120** |
+| 新增 | — | billing 检测 / suite dock / sorter 单元 / availability-store 单元 |
+| 用时 | 4.2s | 4.2s（无回归） |
+
+> 110 + 7 (我的家族 Dock 测试) + 3 (sorter / availability-store) = 120 — 注：实际合并 commit
+> 含其他 PR 的测试增量，以 `npm test` 实际输出为准。
+
+### 📦 升级指引
+
+从 1.4.0 升级：
+
+```bash
+dsh plugin --profile web add @dsh-plugins/dsh-llm-hub@^1.5.0
+# 重启 DSH
+```
+
+**没有破坏性变更**。
+
+如果你在 1.4.0 之前的版本（≤ 1.3.x）有自定义 `keyPool[provider]` 配置项 —— **1.4.0 已删除**
+该字段，所有 key 走 `apiKeyEnv` 数组（参见 1.4.0 CHANGELOG）。1.5.0 不再涉及这块。
+
+### 已知问题
+
+- screenshot 在某些 headless Chromium 下 CDP `Page.captureScreenshot` 会超时
+  （130 个 inline `<style>` × 132 个 stylesheet 同时挂在 head 是触发条件）；
+  本仓 `assets/*.svg` 是基于真实 DOM 测量手绘的，UI 微调后需要更新。
+- sorter 现在是排序**单 provider 内**的模型；跨 provider 排序规则（按价格、按延迟）
+  在下一版（1.6.x）规划。
+- 「套餐」识别的「3 层 fallback」依赖 provider 端实现；新接入的 provider 必须支持
+  `/user/balance` 或 `/token_plan/remains` 之一，否则按默认 `usage` 走。
+
+### 不在 1.5.0 范围
+
+- **失败 key 自动跳过**：仅记录到 `runtimeMarks`，不自动 rotate 到下一把；1.5.x 后续。
+- **(provider, model) 级轮换**：当前是 provider 级；细化到 model 级场景待评估。
+- **账单可视化日历热力图**：能看到每日烧多少 —— 1.6.x 计划。
+
 ## [1.4.0] - 2026-09-26
 
 ### 🔄 多账号 key 轮换：消除独立配置区域
