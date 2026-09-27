@@ -2,6 +2,36 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.5.4] - 2026-09-27
+
+### 🛡️ 智能路由接管的两处加固（1.5.0 的补丁）
+
+1.5.0 让 `smart` 模式用 `agent/request` waterfall 真实改写请求的 provider/model。
+两处会在真机上把会话打挂的边界，这一版补上：
+
+#### 未注册 / 未探测到的 provider 不当路由目标
+
+- **病灶**：`stateFor` 把「不认识这个 provider」与「探测结果是 unknown」都折成
+  `unknown`，而 `unknown` 在裁决里是**可用**的（首次路由需要它兜底）。于是配置里
+  写错一个 provider 名（或该 provider 还没注册）时，接管会把请求指向一个不存在的
+  adapter，请求以 `NO_ADAPTER` 直接失败 —— 比不接管更糟。
+- **修法**：新增 `routableStateFor` —— 探测表里查不到的 provider 一律视为
+  `unavailable`，候选被跳过、路由保持 fail-open（不动原配置）。手动模式下的建议
+  列表仍用旧的 `stateFor`（那里 unknown 是诚实的信息，不是路由目标）。
+- **验证**：`test/host-routing-groups.test.mjs` 覆盖组解析与裁决；`node --test`
+  120 项全过。
+
+#### 首次请求预热可用性探测
+
+- **病灶**：生产环境里可用性探测此前只由客户端触发（打开设置页 / 下拉重探）。
+  开机后如果没人开设置页，探测表是空的 → smart 模式全部候选被判 `unavailable`
+  → 路由长期静默不生效，表现为「开了智能模式但一直在用原模型」。
+- **修法**：`agent/request` 里若 `baseVerdicts` 为空，后台热一把
+  `ensureAvailabilityFresh()`（不阻塞当次请求），这次仍 fail-open 走原配置。
+
+**没做**：没有发布任何新功能，也没有改配置格式 —— `groups` / `mode` / `activeGroup`
+与切组入口（composer 路由 chip）与 1.5.0–1.5.3 完全一致。
+
 ## [1.5.3] - 2026-09-26
 
 ### 🛂 工程纪律对齐
