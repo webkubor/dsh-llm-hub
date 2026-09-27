@@ -130,6 +130,20 @@ test('pickSmartRoute：active 不在候选里时按组顺序接管（完全接�
 	assert.deepEqual(decision.to, { provider: 'modelgo', model: 'gpt-4o' })
 })
 
+test('pickSmartRoute：未探测（unknown）且候选里 → 仍接管 —— 与 unavailable 的真正区别', () => {
+	// 模拟 `routableStateFor` 的新版语义：探测表里没记录、但 settings 里有配 → unknown，
+	// 不是 'unavailable'。这就是 zai-coding-cn 这种无 baseURL、探测刚清空的场景：
+	// 让请求撞一次真上游比直接跳过更接近用户预期。
+	const decision = pickSmartRoute(
+		[{ provider: 'zai-coding-cn', model: 'glm-5.3' }],
+		() => 'unknown',  // routableStateFor 在探测表里查不到、settings 里有 → unknown
+		null
+	)
+	assert.equal(decision.switched, true)
+	assert.deepEqual(decision.to, { provider: 'zai-coding-cn', model: 'glm-5.3' })
+	assert.equal(decision.reason, null)
+})
+
 // ── 设置页编辑器提交的 groups 校验（normalizeRoutingGroupsInput）──────────────
 
 test('normalizeRoutingGroupsInput：合法输入原样通过（顺序即优先级）', () => {

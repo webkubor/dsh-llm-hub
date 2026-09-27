@@ -2,6 +2,31 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.5.6] - 2026-09-27
+
+### 📛 包装升级：首屏补齐居中标题 + 接入 README 门禁
+
+- 新增 `<h1 align="center">` 居中标题与双语 slogan
+- 8 个徽章从 `flat-square` 换成 `for-the-badge`
+- 新增 `scripts/readme-gate.mjs`，挂在 `prepublishOnly` 上
+  - 真源：`cs rule open_source_project_baseline`（README 首屏金字塔）
+  - 4 条契约：居中品牌 / `for-the-badge` 徽章 / 前 80 行有 Why This 对比表 / 有 `README.en.md`
+  - 逃生舱：`README_GATE=off`（仅限明确不需要包装的内部包）
+
+### 🛣️ 智能路由：`routableStateFor` 把"探测表里没记录"细分成 unknown / unavailable
+
+之前一刀切返回 `unavailable`，导致**冷启动 / 用户刚加 provider / 探针刚清空**时被路由跳过，
+即便 settings 里有配、key 也填了，照样不让 smart 接管。典型踩坑：zai-coding-cn 这类
+无 baseURL 的 provider，第一次请求时被 `routableStateFor` 当 unavailable 跳过去。
+
+新语义（`lib/index.js:2554-2580`）：
+
+- 探测表里有 verdict → 用 verdict.state（available / unknown / unavailable）
+- 探测表里没有 + settings 里**有**配 → `unknown`（routable，请求撞真上游，撞完探针补 verdict）
+- 探测表里没有 + settings 里**没**配 → `unavailable`（真不认识，撞 NO_ADAPTER，fail-open）
+
+测试新增 1 条（`pickSmartRoute：未探测（unknown）且候选里 → 仍接管`），全 132 项过。
+
 ## [1.5.5] - 2026-09-27
 
 ### 🪧 路由卡：每条候选的能力 chip（思考 + 多模态）
