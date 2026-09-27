@@ -27,6 +27,20 @@
 
 测试新增 1 条（`pickSmartRoute：未探测（unknown）且候选里 → 仍接管`），全 132 项过。
 
+### 🛣️ 智能路由：`routableStateFor` 把"探测表里没记录"细分成 unknown / unavailable
+
+之前一刀切返回 `unavailable`，导致**冷启动 / 用户刚加 provider / 探针刚清空**时被路由跳过，
+即便 settings 里有配、key 也填了，照样不让 smart 接管。典型踩坑：zai-coding-cn 这类
+无 baseURL 的 provider，第一次请求时被 `routableStateFor` 当 unavailable 跳过去。
+
+新语义（`lib/index.js:2554-2580`）：
+
+- 探测表里有 verdict → 用 verdict.state（available / unknown / unavailable）
+- 探测表里没有 + settings 里**有**配 → `unknown`（routable，请求撞真上游，撞完探针补 verdict）
+- 探测表里没有 + settings 里**没**配 → `unavailable`（真不认识，撞 NO_ADAPTER，fail-open）
+
+测试新增 1 条（`pickSmartRoute：未探测（unknown）且候选里 → 仍接管`），全 132 项过。
+
 ## [1.5.5] - 2026-09-27
 
 ### 🪧 路由卡：每条候选的能力 chip（思考 + 多模态）
