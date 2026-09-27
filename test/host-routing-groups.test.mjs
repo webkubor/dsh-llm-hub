@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parseRouteEntryPure, parseRoutingGroups, pickSmartRoute } from '../lib/index.js'
+import { normalizeRoutingGroupsInput, parseRouteEntryPure, parseRoutingGroups, pickSmartRoute } from '../lib/index.js'
 
 test('parseRouteEntryPure：基本形态与边界（与 closure 版同语义）', () => {
 	assert.deepEqual(parseRouteEntryPure('modelgo/gpt-4o'), { provider: 'modelgo', model: 'gpt-4o' })
@@ -128,4 +128,73 @@ test('pickSmartRoute：active 不在候选里时按组顺序接管（完全接�
 	)
 	assert.equal(decision.switched, true)
 	assert.deepEqual(decision.to, { provider: 'modelgo', model: 'gpt-4o' })
+})
+
+// ── 设置页编辑器提交的 groups 校验（normalizeRoutingGroupsInput）──────────────
+
+test('normalizeRoutingGroupsInput：合法输入原样通过（顺序即优先级）', () => {
+	const result = normalizeRoutingGroupsInput([
+		{ id: 'company', label: '公司', primary: 'modelgo-gateway/claude-sonnet-5', fallbacks: ['modelgo-gateway/gpt-5.5'] },
+		{ id: 'personal', label: '个人', primary: 'zai-coding-cn/glm-5.3', fallbacks: [] }
+	])
+	assert.deepEqual(result.dropped, [])
+	assert.deepEqual(result.groups, [
+		{ id: 'company', label: '公司', primary: { provider: 'modelgo-gateway', model: 'claude-sonnet-5' }, fallbacks: [{ provider: 'modelgo-gateway', model: 'gpt-5.5' }] },
+		{ id: 'personal', label: '个人', primary: { provider: 'zai-coding-cn', model: 'glm-5.3' }, fallbacks: [] }
+	])
+})
+
+test('normalizeRoutingGroupsInput：非法候选被过滤但不整单拒绝（手敲错一行不该丢整次保存）', () => {
+	const result = normalizeRoutingGroupsInput([
+		{ id: 'g1', primary: 'good/model', fallbacks: ['bad entry', 'also bad/'] }
+	])
+	assert.equal(result.groups.length, 1)
+	assert.deepEqual(result.groups[0].fallbacks, [])
+	assert.equal(result.dropped.length, 2, '两条非法候选各有说明')
+})
+
+test('normalizeRoutingGroupsInput：空组 / 重名组 / 缺 id 被丢弃并说明原因', () => {
+	const result = normalizeRoutingGroupsInput([
+		{ id: 'a', primary: 'p/m' },
+		{ id: 'a', primary: 'q/n' },
+		{ id: '', primary: 'p/m' },
+		{ id: 'empty', fallbacks: [] },
+		'nonsense'
+	])
+	assert.deepEqual(result.groups.map((group) => group.id), ['a'])
+	assert.equal(result.groups[0].primary.provider, 'p', '重名组保留先出现的')
+	assert.equal(result.dropped.length, 4)
+})
+
+test('normalizeRoutingGroupsInput：只有 fallbacks 没有 primary 也算合法组（primary 位置留给第一个 fallback）', () => {
+	const result = normalizeRoutingGroupsInput([{ id: 'only-fb', fallbacks: ['p/m', 'q/n'] }])
+	assert.equal(result.groups.length, 1)
+	assert.equal(result.groups[0].primary, null)
+	assert.equal(result.groups[0].fallbacks.length, 2)
+})
+
+test('normalizeRoutingGroupsInput：非数组输入 / 上限防呆', () => {
+	assert.deepEqual(normalizeRoutingGroupsInput(null), { groups: [], dropped: ['groups 不是数组'] })
+	assert.deepEqual(normalizeRoutingGroupsInput('x'), { groups: [], dropped: ['groups 不是数组'] })
+	const many = Array.from({ length: 25 }, (_, i) => ({ id: `g${i}`, primary: 'p/m' }))
+	const result = normalizeRoutingGroupsInput(many)
+	assert.equal(result.groups.length, 20, '超过 20 组截断')
+	assert.ok(result.dropped.some((line) => line.includes('超过 20 组')))
+})
+
+test('normalizeRoutingGroupsInput：candidates[] 形态（设置页编辑器）—— 首个即主力', () => {
+	const result = normalizeRoutingGroupsInput([
+		{ id: 'personal', label: '个人', candidates: [{ provider: 'zai-coding-cn', model: 'glm-5.3' }, { provider: 'minimax', model: 'MiniMax-M3' }, 'bad entry'] }
+	])
+	assert.deepEqual(result.dropped, ['组 personal 的非法候选被忽略：bad entry'])
+	assert.deepEqual(result.groups[0].primary, { provider: 'zai-coding-cn', model: 'glm-5.3' }, 'candidates[0] 是主力')
+	assert.deepEqual(result.groups[0].fallbacks, [{ provider: 'minimax', model: 'MiniMax-M3' }], '其余按顺序落 fallbacks')
+})
+
+test('normalizeRoutingGroupsInput：candidates 存在时优先于 primary/fallbacks（避免两套顺序打架）', () => {
+	const result = normalizeRoutingGroupsInput([
+		{ id: 'g', primary: 'old/model', fallbacks: ['old/two'], candidates: [{ provider: 'new', model: 'model' }] }
+	])
+	assert.deepEqual(result.groups[0].primary, { provider: 'new', model: 'model' })
+	assert.deepEqual(result.groups[0].fallbacks, [])
 })

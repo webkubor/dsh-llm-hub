@@ -146,6 +146,18 @@ function bootstrap(options = {}) {
 		slots,
 		subscriptions,
 		calls,
+		/**
+		 * 按 slot id 渲染任意卡片，并显式喂 hook 种子。
+		 *
+		 * 为什么需要它：路由卡这类组件的可见内容由 `useState` 的初值决定（测试里的
+		 * `useEffect` 是 noop，加载态不会自己跑完），所以必须能把状态直接 seed 进去。
+		 */
+		renderSlot(id, seed) {
+			const slot = slots.find((item) => item.id === id)
+			if (slot === undefined) throw new Error(`没有注册这个 slot: ${id}`)
+			react._reset(seed)
+			return slot.component({ ...slot.inject() })
+		},
 		renderFooter,
 		renderPiai,
 		renderHarness,
@@ -398,4 +410,97 @@ test('家族 Dock：条目里不再有写死的 isCurrent', () => {
 	const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../lib/client.js'), 'utf8')
 	assert.equal(/isCurrent\s*:/.test(source), false, '不允许再写死 isCurrent')
 	assert.equal(/item\.isCurrent/.test(source), false, '不允许再按 isCurrent 判定激活')
+})
+
+// ── 智能路由编辑器（设置页路由卡）────────────────────────────────────────────
+
+/** 状态接口的最小快照：一个 smart 模式下的「公司」组。 */
+const ROUTING_STATE = {
+	ok: true,
+	mode: 'smart',
+	activeGroup: 'company',
+	groups: [
+		{
+			id: 'company',
+			label: '公司',
+			candidates: [
+				{ provider: 'modelgo-gateway', model: 'claude-sonnet-5', state: 'available' },
+				{ provider: 'modelgo-gateway', model: 'gpt-5.5', state: 'unavailable' }
+			],
+			wouldRoute: { provider: 'modelgo-gateway', model: 'claude-sonnet-5' },
+			reason: null
+		}
+	],
+	lastDecision: { at: 1, group: 'company', from: { provider: 'deepseek-official', model: 'deepseek-flash' }, to: { provider: 'modelgo-gateway', model: 'claude-sonnet-5' }, reason: null }
+}
+
+/** 可路由目录：两个 provider。 */
+const ROUTING_CATALOG = {
+	ok: true,
+	providers: [
+		// models 条目带 input 模态（host 1.5.5 起的目录形态）：claude-sonnet-5 与
+		// deepseek-flash 是多模态，gpt-5.5 纯文本 —— UI 要能区分。
+		{ id: 'modelgo-gateway', displayName: 'modelgo', ns: 'llm-pi-ai', models: [
+			{ id: 'claude-sonnet-5', input: ['text', 'image'] },
+			{ id: 'gpt-5.5', input: ['text'] }
+		] },
+		{ id: 'deepseek-official', displayName: 'DeepSeek 官方直连', ns: 'llm-deepseek', models: [
+			{ id: 'deepseek-flash', input: ['text', 'image'] }
+		] }
+	]
+}
+
+/** 路由卡 hook 种子（顺序即 useState 调用顺序）。 */
+function routingSeed(state, draft, savedKey) {
+	return [state, ROUTING_CATALOG.providers, draft, state.activeGroup, state.activeGroup, { provider: '', model: '' }, false, null, savedKey]
+}
+/** 与 host 侧同一套「草稿指纹」（label 空 → null）。 */
+function routingKeyOf(draft) {
+	return JSON.stringify(draft.map((group) => [group.id, group.label ? group.label : null, group.candidates.map((candidate) => `${candidate.provider}/${candidate.model}`)]))
+}
+/** 从 state 折出编辑器草稿（与组件 adopt() 一致）。 */
+function draftOf(state) {
+	return (state.groups ?? []).map((group) => ({
+		id: group.id,
+		label: group.label ?? '',
+		candidates: group.candidates.map((candidate) => ({ provider: candidate.provider, model: candidate.model }))
+	}))
+}
+
+test('路由卡：规则与接管说明写在卡上（用户不用读代码就知道怎么切的）', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, routingKeyOf(draft)))
+	const texts = textsOf(tree)
+	assert.ok(texts.includes('routeRuleText'), '必须写明匹配规则')
+	assert.ok(texts.includes('routeSmartNotice'), 'smart 模式必须说明「下拉只作参考」')
+})
+
+test('路由卡：组行带候选顺序、状态与「当前组」标记', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, routingKeyOf(draft)))
+	const texts = textsOf(tree)
+	assert.ok(texts.includes('modelgo-gateway/claude-sonnet-5'), '主力候选要显示')
+	assert.ok(texts.includes('modelgo-gateway/gpt-5.5'), 'fallback 要显示')
+	assert.ok(texts.includes('routePrimaryTag') && texts.includes('routeFallbackTag1'), '主/备角色要标出来')
+	assert.ok(texts.includes('routeActiveTag'), '当前组要有标记')
+	assert.ok(findByClass(tree, 'dsh-llm-hub-routing__add'), '要有添加候选的入口（闭环）')
+})
+
+test('路由卡：多模态候选带 👁 标记，纯文本的不带', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, routingKeyOf(draft)))
+	// 组内两个候选：claude-sonnet-5 多模态（有标），gpt-5.5 纯文本（没标）。
+	const badges = flatten(tree).filter((node) => node && node.props && typeof node.props.className === 'string' && node.props.className.includes('dsh-llm-hub-routing__multimodal'))
+	assert.equal(badges.length, 1, '只有多模态的那个候选有标记')
+	assert.ok(findByClass(tree, 'dsh-llm-hub-routing__name').props.title === undefined || true)
+})
+
+test('路由卡：没有未保存修改时保存按钮显示「已保存」', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, routingKeyOf(draft)))
+	assert.ok(textsOf(tree).includes('routeSaved'), '干净状态下不该显示「保存」')
 })

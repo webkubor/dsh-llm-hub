@@ -2,6 +2,22 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.5.5] - 2026-09-27
+
+### 🪧 路由卡：每条候选的能力 chip（思考 + 多模态）
+
+之前 routing 卡里只把「多模态」用一个 `👁` emoji 标在 model id 后面，**思考档位完全没标** —— 用户必须查文档才能知道这个模型能思考、能用哪些 effort。这一版把这条缝上：
+
+- **`routingCatalogOf()`**（`lib/index.js:2789`）每个 model 多带一条 `reasoning: { levels: [{ id, name }, …] } | null`，从 settings 的 `reasoningEfforts` 抽出；键名是人话（`off` / `low` / `high` / `max`），值是适配器认的 effort id，`null` 值的档位（强制思考、不能关的 `off`）不进 chip 文本。
+- **`routing card`**（`lib/client.js` RoutingCard）：
+  - 每个候选后面追加两枚 chip（仅在能力存在时出现）：`💭 思考 low/high/max`、`👁 图像`；思考档位 >3 个时折成 `low/medium/high+2`。
+  - 多模态 chip 之前是裸 emoji，现在与思考 chip 共用一套样式（`.dsh-llm-hub-routing__reasoning / __multimodal`），按 `state-info` / `state-success` 主题色上边框 —— 一眼分得清「能干什么」。
+  - 添加候选的下拉 `<option>` 同步带 `💭 … 👁` 后缀（同一 catalog 数据源）。
+- **i18n**：`routeMultimodalShort` / `routeReasoningShort` / `routeReasoningTip` 加进 zh + en；思考档位的 tooltip 列出 `name → id` 的映射，方便排查 `off: null` 之类的「明明配置了 off 却不能用」的情况。
+- **测试**：`test/client-cards.test.mjs` 的多模态 chip 用例改成查新类名（`dsh-llm-hub-routing__multimodal`），`node --test` 131 项全过。
+
+数据真源仍是 settings —— 不打网关、不改路由逻辑，只是把已经在那儿的事实亮出来。
+
 ## [1.5.4] - 2026-09-27
 
 ### 🛡️ 智能路由接管的两处加固（1.5.0 的补丁）
