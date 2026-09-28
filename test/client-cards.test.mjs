@@ -121,10 +121,10 @@ function bootstrap(options = {}) {
 		react._reset(options.seed)
 		return footer.component({ ...footer.inject() })
 	}
-	const renderPiai = (provider) => {
+	const renderPiai = (provider, owner = {}) => {
 		const slot = slots.find((item) => item.key === 'llm-pi-ai')
 		react._reset(options.seed)
-		return slot.component({ ...slot.inject(), provider })
+		return slot.component({ ...slot.inject(), provider, ...owner })
 	}
 	const renderHarness = () => {
 		const slot = slots.find((item) => item.id === 'dsh-llm-hub-harness')
@@ -190,19 +190,18 @@ test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板
 		'settings.models.footer#dsh-llm-hub-harness',
 		'settings.models.footer#dsh-llm-hub-health',
 		'settings.models.footer#dsh-llm-hub-hero',
-		'settings.models.footer#dsh-llm-hub-presets',
 		'settings.models.footer#dsh-llm-hub-routing',
 		'settings.models.footer#dsh-llm-hub-suite',
 		'settings.models.footer#dsh-llm-hub-usage',
 		'settings.models.provider-card@llm-deepseek',
 		'settings.models.provider-card@llm-pi-ai'
 	].sort())
-	// footer 是 list slot，**八个**条目靠 id 区分、靠 order 排序（hero 60 / presets 65 / health 70 /
+	// footer 是 list slot，**七个**条目靠 id 区分、靠 order 排序（hero 60 / health 70 /
 	// routing 75 / usage 80 / harness 90 / footer 100 / suite 110）。漏了 id 会被宿主静默丢弃 —— 接口通、组件在、页面上什么都没有。
 	// **没有 keypool**：1.4.0 起按用户反馈删独立「多账号 key 轮换」卡 —— 多 key 走 `apiKeyEnv` 数组配置，
 	// 轮换状态统一在 connectionFacts 内部，失败信息进 runtimeMarks，不需要单独 debug 路由。
 	const footer = hub.slots.filter((slot) => slot.name === 'settings.models.footer')
-	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness', 'dsh-llm-hub-health', 'dsh-llm-hub-hero', 'dsh-llm-hub-presets', 'dsh-llm-hub-routing', 'dsh-llm-hub-suite', 'dsh-llm-hub-usage'])
+	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness', 'dsh-llm-hub-health', 'dsh-llm-hub-hero', 'dsh-llm-hub-routing', 'dsh-llm-hub-suite', 'dsh-llm-hub-usage'])
 	for (const slot of footer) assert.equal(typeof slot.order, 'number', 'list slot 必须给 order')
 	// 面板是初版设计，后来因为与卡片重复被拿掉；这里钉住它不会被顺手加回来。
 	assert.equal(hub.slots.some((slot) => slot.id === 'dsh-llm-hub-availability'), false)
@@ -503,4 +502,34 @@ test('路由卡：没有未保存修改时保存按钮显示「已保存」', ()
 	const draft = draftOf(ROUTING_STATE)
 	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, routingKeyOf(draft)))
 	assert.ok(textsOf(tree).includes('routeSaved'), '干净状态下不该显示「保存」')
+})
+
+// 1.6.1：页脚「热门大模型一键装配」抽屉读起来像广告，改成只在「添加提供方」选中某家时，
+// 在那张草稿卡（宿主以 configured:false 派发）上给一行匹配提示。
+test('添加提供方草稿卡：选中已知厂商时出现一行匹配提示（名称 · 推荐 · 获取 Key）', () => {
+	const hub = bootstrap({ seed: [STATUS] })
+	const tree = hub.renderPiai({ provider: 'minimax-cn', displayName: 'minimax-cn' }, { configured: false })
+	const hint = findByClass(tree, 'dsh-llm-hub-preset-hint')
+	assert.ok(hint, '草稿态且命中预设时必须出现提示')
+	const link = findByClass(tree, 'dsh-llm-hub-preset-hint__link')
+	assert.match(link.props.href, /minimaxi\.com/)
+})
+
+test('添加提供方草稿卡：已配置的卡、未知厂商都不出现提示', () => {
+	const hub = bootstrap({ seed: [STATUS] })
+	assert.equal(findByClass(hub.renderPiai({ provider: 'minimax-cn' }, { configured: true }), 'dsh-llm-hub-preset-hint'), undefined)
+	assert.equal(findByClass(hub.renderPiai({ provider: 'xai' }, { configured: false }), 'dsh-llm-hub-preset-hint'), undefined)
+})
+
+test('页脚不再有预设抽屉，也不再携带 YAML 模板', () => {
+	const hub = bootstrap()
+	assert.equal(hub.slots.some((slot) => slot.id === 'dsh-llm-hub-presets'), false)
+})
+
+test('添加提供方草稿卡：不渲染原卡内容（避免把「还没保存」显示成红字报错）', () => {
+	const hub = bootstrap({ seed: [STATUS] })
+	const draft = hub.renderPiai({ provider: 'openrouter' }, { configured: false })
+	assert.ok(findByClass(draft, 'dsh-llm-hub-preset-hint'))
+	assert.equal(findByClass(draft, 'dsh-llm-hub-error'), undefined)
+	assert.equal(hub.renderPiai({ provider: 'xai' }, { configured: false }), null)
 })
