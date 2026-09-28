@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { normalizeRoutingGroupsInput, parseRouteEntryPure, parseRoutingGroups, pickSmartRoute } from '../lib/index.js'
+import { cleanRouteNote, normalizeRoutingGroupsInput, parseRouteEntryPure, parseRoutingGroups, pickSmartRoute } from '../lib/index.js'
 
 test('parseRouteEntryPure：基本形态与边界（与 closure 版同语义）', () => {
 	assert.deepEqual(parseRouteEntryPure('modelgo/gpt-4o'), { provider: 'modelgo', model: 'gpt-4o' })
@@ -211,4 +211,30 @@ test('normalizeRoutingGroupsInput：candidates 存在时优先于 primary/fallba
 	])
 	assert.deepEqual(result.groups[0].primary, { provider: 'new', model: 'model' })
 	assert.deepEqual(result.groups[0].fallbacks, [])
+})
+
+// 1.7.0：备注落成字段（YAML 注释在页面保存时会被整段冲掉）
+test('parseRoutingGroups：组备注与候选备注读出；孤儿备注（候选已不在组里）丢弃', () => {
+	const result = parseRoutingGroups({ groups: [{
+		id: 'personal', note: '  个人池  ', primary: 'zai/glm', fallbacks: ['mm/m3'],
+		notes: { 'zai/glm': '包月：边际成本 0', 'mm/m3': '', 'gone/model': '已删掉的候选' }
+	}] })
+	assert.equal(result.groups[0].note, '个人池')
+	assert.deepEqual(result.groups[0].notes, { 'zai/glm': '包月：边际成本 0' })
+})
+
+test('normalizeRoutingGroupsInput：编辑器形态的候选 note 折进组 notes 字典', () => {
+	const { groups } = normalizeRoutingGroupsInput([{
+		id: 'company', note: '公司',
+		candidates: [{ provider: 'mg', model: 'sonnet', note: '报销' }, { provider: 'mg', model: 'gpt', note: '' }]
+	}])
+	assert.equal(groups[0].note, '公司')
+	assert.deepEqual(groups[0].notes, { 'mg/sonnet': '报销' })
+})
+
+test('cleanRouteNote：去空白、空串为 null、超长截到 120', () => {
+	assert.equal(cleanRouteNote('  a '), 'a')
+	assert.equal(cleanRouteNote('   '), null)
+	assert.equal(cleanRouteNote(3), null)
+	assert.equal(cleanRouteNote('x'.repeat(200)).length, 120)
 })

@@ -190,18 +190,18 @@ test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板
 		'settings.models.footer#dsh-llm-hub-harness',
 		'settings.models.footer#dsh-llm-hub-health',
 		'settings.models.footer#dsh-llm-hub-hero',
-		'settings.models.footer#dsh-llm-hub-routing',
 		'settings.models.footer#dsh-llm-hub-suite',
 		'settings.models.footer#dsh-llm-hub-usage',
 		'settings.models.provider-card@llm-deepseek',
-		'settings.models.provider-card@llm-pi-ai'
+		'settings.models.provider-card@llm-pi-ai',
+		'settings.section#dsh-llm-hub-routing'
 	].sort())
-	// footer 是 list slot，**七个**条目靠 id 区分、靠 order 排序（hero 60 / health 70 /
+	// footer 是 list slot，**六个**条目靠 id 区分、靠 order 排序（hero 60 / health 70 /
 	// routing 75 / usage 80 / harness 90 / footer 100 / suite 110）。漏了 id 会被宿主静默丢弃 —— 接口通、组件在、页面上什么都没有。
 	// **没有 keypool**：1.4.0 起按用户反馈删独立「多账号 key 轮换」卡 —— 多 key 走 `apiKeyEnv` 数组配置，
 	// 轮换状态统一在 connectionFacts 内部，失败信息进 runtimeMarks，不需要单独 debug 路由。
 	const footer = hub.slots.filter((slot) => slot.name === 'settings.models.footer')
-	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness', 'dsh-llm-hub-health', 'dsh-llm-hub-hero', 'dsh-llm-hub-routing', 'dsh-llm-hub-suite', 'dsh-llm-hub-usage'])
+	assert.deepEqual(footer.map((slot) => slot.id).sort(), ['dsh-llm-hub-footer', 'dsh-llm-hub-harness', 'dsh-llm-hub-health', 'dsh-llm-hub-hero', 'dsh-llm-hub-suite', 'dsh-llm-hub-usage'])
 	for (const slot of footer) assert.equal(typeof slot.order, 'number', 'list slot 必须给 order')
 	// 面板是初版设计，后来因为与卡片重复被拿掉；这里钉住它不会被顺手加回来。
 	assert.equal(hub.slots.some((slot) => slot.id === 'dsh-llm-hub-availability'), false)
@@ -455,16 +455,24 @@ function routingSeed(state, draft, savedKey) {
 }
 /** 与 host 侧同一套「草稿指纹」（label 空 → null）。 */
 function routingKeyOf(draft) {
-	return JSON.stringify(draft.map((group) => [group.id, group.label ? group.label : null, group.candidates.map((candidate) => `${candidate.provider}/${candidate.model}`)]))
+	return JSON.stringify(draft
+		.filter((group) => group.candidates.length > 0)
+		.map((group) => [group.id, group.label ? group.label : null, group.note ? group.note : null,
+			group.candidates.map((candidate) => [`${candidate.provider}/${candidate.model}`, candidate.note ? candidate.note : null])]))
 }
 /** 从 state 折出编辑器草稿（与组件 adopt() 一致）。 */
 function draftOf(state) {
 	return (state.groups ?? []).map((group) => ({
 		id: group.id,
 		label: group.label ?? '',
-		candidates: group.candidates.map((candidate) => ({ provider: candidate.provider, model: candidate.model }))
+		note: group.note ?? '',
+		candidates: group.candidates.map((candidate) => ({ provider: candidate.provider, model: candidate.model, note: candidate.note ?? '' }))
 	}))
 }
+/** 某组展开后，每个候选行里「提供方 / 模型」两个下拉的当前值。 */
+const pickedOf = (tree) => flatten(tree)
+	.filter((node) => node && node.props && typeof node.props.className === 'string' && node.props.className.includes('dsh-llm-hub-routing__pick'))
+	.map((pick) => pick.children.filter((child) => child && child.type === 'select').map((select) => select.props.value).join('/'))
 
 test('路由卡：规则与接管说明写在卡上（用户不用读代码就知道怎么切的）', () => {
 	const hub = bootstrap()
@@ -480,8 +488,8 @@ test('路由卡：组行带候选顺序、状态与「当前组」标记', () =>
 	const draft = draftOf(ROUTING_STATE)
 	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, routingKeyOf(draft)))
 	const texts = textsOf(tree)
-	assert.ok(texts.includes('modelgo-gateway/claude-sonnet-5'), '主力候选要显示')
-	assert.ok(texts.includes('modelgo-gateway/gpt-5.5'), 'fallback 要显示')
+	// 1.7.0 起候选是可原地修改的下拉框：按顺序读出每行选中的 provider/model。
+	assert.deepEqual(pickedOf(tree), ['modelgo-gateway/claude-sonnet-5', 'modelgo-gateway/gpt-5.5'], '主力与 fallback 按顺序显示')
 	assert.ok(texts.includes('routePrimaryTag') && texts.includes('routeFallbackTag1'), '主/备角色要标出来')
 	assert.ok(texts.includes('routeActiveTag'), '当前组要有标记')
 	assert.ok(findByClass(tree, 'dsh-llm-hub-routing__add'), '要有添加候选的入口（闭环）')
@@ -494,7 +502,6 @@ test('路由卡：多模态候选带 👁 标记，纯文本的不带', () => {
 	// 组内两个候选：claude-sonnet-5 多模态（有标），gpt-5.5 纯文本（没标）。
 	const badges = flatten(tree).filter((node) => node && node.props && typeof node.props.className === 'string' && node.props.className.includes('dsh-llm-hub-routing__multimodal'))
 	assert.equal(badges.length, 1, '只有多模态的那个候选有标记')
-	assert.ok(findByClass(tree, 'dsh-llm-hub-routing__name').props.title === undefined || true)
 })
 
 test('路由卡：没有未保存修改时保存按钮显示「已保存」', () => {
@@ -532,4 +539,45 @@ test('添加提供方草稿卡：不渲染原卡内容（避免把「还没保�
 	assert.ok(findByClass(draft, 'dsh-llm-hub-preset-hint'))
 	assert.equal(findByClass(draft, 'dsh-llm-hub-error'), undefined)
 	assert.equal(hub.renderPiai({ provider: 'xai' }, { configured: false }), null)
+})
+
+// ── 1.7.0 路由编辑器：原地改 / 设为主力 / 备注 / 默认展开 / 自动保存 ──
+test('路由卡：当前组默认展开（不用先找「▸ 1」），开合是写明「编辑 / 收起」的按钮', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const seed = routingSeed(ROUTING_STATE, draft, routingKeyOf(draft))
+	seed[4] = null // expanded：没手动开合过
+	const tree = hub.renderSlot('dsh-llm-hub-routing', seed)
+	assert.ok(findByClass(tree, 'dsh-llm-hub-routing__candidates'), '当前组默认展开')
+	assert.ok(textsOf(tree).some((text) => text.includes('routeCollapse')), '展开态按钮写「收起」')
+})
+
+test('路由卡：非主力候选有「设为主力」，每个候选有备注输入', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, routingKeyOf(draft)))
+	const texts = textsOf(tree)
+	assert.equal(texts.filter((text) => text === 'routeMakePrimary').length, 1, '只有备1 有「设为主力」')
+	const notes = flatten(tree).filter((node) => node && node.type === 'input' && typeof node.props.className === 'string' && node.props.className.includes('dsh-llm-hub-routing__note'))
+	assert.equal(notes.length, 3, '组备注 1 个 + 每个候选各 1 个')
+})
+
+test('路由卡：干净时显示「已保存」，有改动显示「保存中…」，空组不算改动', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const clean = routingKeyOf(draft)
+	assert.ok(textsOf(hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, clean))).includes('routeSaved'))
+	const edited = draft.map((group) => ({ ...group, note: '公司报销' }))
+	assert.ok(textsOf(hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, edited, clean))).includes('routeSaving'), '改了备注 = 有改动')
+	const withEmpty = [...draft, { id: 'group-2', label: '', note: '', candidates: [] }]
+	assert.ok(textsOf(hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, withEmpty, clean))).includes('routeSaved'), '刚建的空组不触发保存（服务端会丢弃空组）')
+})
+
+test('路由是独立的设置分区，排在「模型」(10) 下面、「插件」(15) 上面', () => {
+	const hub = bootstrap()
+	const section = hub.slots.find((slot) => slot.name === 'settings.section' && slot.id === 'dsh-llm-hub-routing')
+	assert.ok(section, '要注册成 settings.section')
+	assert.ok(section.order > 10 && section.order < 15)
+	assert.equal(typeof section.label, 'function', '导航文字由注册方提供')
+	assert.equal(hub.slots.some((slot) => slot.name === 'settings.models.footer' && slot.id === 'dsh-llm-hub-routing'), false, '模型页脚不再重复挂一份')
 })
