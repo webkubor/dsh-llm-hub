@@ -27,11 +27,13 @@ On DSH's Models page, the official adapters leave half the job undone. This plug
 
 ## Install
 
+> Only Node.js is required — **no global dsh install**; upstream's official entry is `npx @deepseek-ai/dsh`. If dsh is installed globally, use `dsh` instead.
+
 ```sh
-dsh plugin --profile web add @dsh-plugins/dsh-llm-hub
+npx @deepseek-ai/dsh plugin --profile web add @dsh-plugins/dsh-llm-hub
 ```
 
-Add `@dsh-plugins/dsh-llm-hub` to `dsh.profile.bundles` in `~/.dsh/profiles/web/package.json`, then run `~/.dsh/restart.sh`.
+Add `@dsh-plugins/dsh-llm-hub` to `dsh.profile.bundles` in `~/.dsh/profiles/web/package.json`, then restart DSH (stop it and rerun `npx @deepseek-ai/dsh web`).
 Open **Settings → Models** — a new row appears under the provider cards.
 
 <sub>A boot-graph change requires a restart; hot reload won't pick it up. `cordis.patch.yml` is inserted automatically by the bundle mechanism.</sub>
