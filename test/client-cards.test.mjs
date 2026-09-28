@@ -504,11 +504,15 @@ test('路由卡：多模态候选带 👁 标记，纯文本的不带', () => {
 	assert.equal(badges.length, 1, '只有多模态的那个候选有标记')
 })
 
-test('路由卡：没有未保存修改时保存按钮显示「已保存」', () => {
+// 2026-09-28 改的契约：干净时**不占位**。原先空闲态渲染「已保存」，但那三个字
+// 跟「刚刚存成功」长得一模一样，读起来像一条一直挂着的成功提示，其实什么都没说。
+// 现在只有 真存过 / 存到一半 / 存失败 才给反馈。
+test('路由卡：干净时不显示任何保存状态（不再常驻「已保存」）', () => {
 	const hub = bootstrap()
 	const draft = draftOf(ROUTING_STATE)
 	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, routingKeyOf(draft)))
-	assert.ok(textsOf(tree).includes('routeSaved'), '干净状态下不该显示「保存」')
+	assert.equal(findByClass(tree, 'dsh-llm-hub-routing__status'), undefined, '干净状态不该有状态文案占位')
+	assert.ok(!textsOf(tree).includes('routeSaved'), '干净状态不该显示「已保存」')
 })
 
 // 1.6.1：页脚「热门大模型一键装配」抽屉读起来像广告，改成只在「添加提供方」选中某家时，
@@ -562,15 +566,18 @@ test('路由卡：非主力候选有「设为主力」，每个候选有备注�
 	assert.equal(notes.length, 3, '组备注 1 个 + 每个候选各 1 个')
 })
 
-test('路由卡：干净时显示「已保存」，有改动显示「保存中…」，空组不算改动', () => {
+// 2026-09-28：干净态不再显示「已保存」（见上一个测试的理由）。
+// 「空组不算改动」这条契约本身不变，只是改用反向断言表达 —— 空组不该
+// 触发「保存中…」。
+test('路由卡：有改动显示「保存中…」，空组不算改动，干净态不占位', () => {
 	const hub = bootstrap()
 	const draft = draftOf(ROUTING_STATE)
 	const clean = routingKeyOf(draft)
-	assert.ok(textsOf(hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, clean))).includes('routeSaved'))
+	assert.ok(!textsOf(hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, draft, clean))).includes('routeSaved'), '干净状态不该显示「已保存」')
 	const edited = draft.map((group) => ({ ...group, note: '公司报销' }))
 	assert.ok(textsOf(hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, edited, clean))).includes('routeSaving'), '改了备注 = 有改动')
 	const withEmpty = [...draft, { id: 'group-2', label: '', note: '', candidates: [] }]
-	assert.ok(textsOf(hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, withEmpty, clean))).includes('routeSaved'), '刚建的空组不触发保存（服务端会丢弃空组）')
+	assert.ok(!textsOf(hub.renderSlot('dsh-llm-hub-routing', routingSeed(ROUTING_STATE, withEmpty, clean))).includes('routeSaving'), '刚建的空组不触发保存（服务端会丢弃空组）')
 })
 
 test('路由是独立的设置分区，排在「模型」(10) 下面、「插件」(15) 上面', () => {
