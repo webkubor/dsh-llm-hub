@@ -16,7 +16,12 @@ jobs:
         with:
           node-version: 22
 
-      # 本包零依赖（运行时和开发时都是），所以不跑 npm ci —— 没有 lockfile 可装。
+      # 1.8.0 起有 devDependency 了（@deepseek-ai/schemastery，0.1.7 settings 适配要用），
+      # lockfile 也随之存在，所以要装。漏了这步 CI 会在回归测试那步红在
+      # ERR_MODULE_NOT_FOUND，而不是在真正的断言上。运行时依赖仍是零。
+      - name: 安装 devDependencies
+        run: npm ci
+
       - name: 两半语法
         run: npm run check
 

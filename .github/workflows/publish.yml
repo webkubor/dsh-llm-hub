@@ -48,12 +48,19 @@ jobs:
       - name: Ensure OIDC-capable npm
         run: npm install --global 'npm@^11.5.1'
 
-      # 刻意**没有** `npm ci`：本包运行时与开发时都零依赖，也没有 lockfile
-      # （ci.yml 里有同样的说明）。这里的三个检查只用 Node 内建能力。
-      # 从别的仓库照抄带 `npm ci` 的版本会直接挂 —— bloom-theme 的 publish.yml 上
-      # 就留着一句注释记录过这类事故（反方向：它确实有 devDependency，漏了 install
-      # 于是 `sh: 1: contrast-guard: not found`、tag 打出去了 npm 没发成）。
-      # 结论：发布工作流的安装步骤要按**本仓库**的依赖事实写，不能互抄。
+      # 1.8.0 起这里**必须**有 `npm ci`：本包新增了 devDependency
+      # `@deepseek-ai/schemastery`（0.1.7 的 settings 适配要静态 import 它来构造
+      # Config），lockfile 也就随之有了。
+      #
+      # 这一步的缺失是真实踩过的：v1.8.0 的 tag 推上去后 CI 在「语法 + 回归测试」
+      # 这步就红了 —— ERR_MODULE_NOT_FOUND: Cannot find package
+      # '@deepseek-ai/schemastery'，npm publish 那步根本没轮到执行。tag 打了、
+      # Release 建了、npm 上却仍是 1.7.0，看起来像「发布静默失败」，实际是测试先挂。
+      #
+      # 注意运行时依赖仍是零：schemastery 由 DSH 宿主提供，插件发布出去不拖任何包。
+      # 装它只是为了能在本仓和 CI 里把 Config 构造出来。
+      - name: 安装 devDependencies
+        run: npm ci
 
       - name: 语法 + 回归测试
         run: |
