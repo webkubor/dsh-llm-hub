@@ -23,12 +23,26 @@ const PKG_NAME = JSON.parse(
 let pluginDefinition = null
 
 // 搭好 window / document，再载入一次脚本，拿到 factory。
+// document 额外记下 addEventListener：路由 chip 的浮层靠「点外部 / Esc 关闭」，
+// 收不收得住只能靠真触发这两个事件来验，光看渲染树看不出来。
+const docListeners = new Map()
 globalThis.window = { __ModuleLoader__: { load: (definition) => { pluginDefinition = definition } } }
 globalThis.document = {
 	getElementById: () => null,
 	createElement: () => ({ textContent: '' }),
-	head: { appendChild: () => {} }
+	head: { appendChild: () => {} },
+	addEventListener: (type, handler) => {
+		if (!docListeners.has(type)) docListeners.set(type, new Set())
+		docListeners.get(type).add(handler)
+	},
+	removeEventListener: (type, handler) => { docListeners.get(type)?.delete(handler) }
 }
+/** 触发一次 document 上的事件（冒泡型，由目标节点自己往上传 —— 桩没有真 DOM）。 */
+globalThis.__fireDocument = (type, event) => {
+	for (const handler of [...(docListeners.get(type) ?? [])]) handler(event)
+}
+/** 当前挂在 document 上的某类监听数（用来验「关着时不挂」/「关掉后卸干净」）。 */
+globalThis.__docListeners = (type) => docListeners.get(type)?.size ?? 0
 await import('../lib/client.js')
 assert.ok(pluginDefinition, 'client 脚本没有通过 window.__ModuleLoader__.load 注册')
 // 断言的说法一直是对的，但期望值曾被写死成 'dsh-llm-hub' —— 包名迁到 @webkubor/ scope 时
@@ -42,29 +56,54 @@ assert.equal(pluginDefinition.id, PKG_NAME, 'id 必须与 package.json 的 name 
  * `useState` 按**调用顺序**喂种子值：PiAiCard 与 HubFooter 的 hook 顺序是确定的，
  * 想跳过「还没加载完」的早返回，就必须能seed 出非空的首个状态。
  * `useSyncExternalStore` 直接返回当前的可用性快照 —— 测试要的是渲染结果，不是订阅机制。
+ *
+ * setter / ref / effect 三样都记进 `_setters` / `_refs` / `_effects`：
+ * 「点完浮层有没有收起」这种契约，看渲染树是看不出来的 —— 收不收起发生在
+ * 事件回调和 effect 里，只能观察状态被写成了什么。默认仍不跑 effect，
+ * 免得把「加载态自己跑完」这件事从用例手里抢走。
  */
-function createReact(seedValues) {
+function createReact(seedValues, options = {}) {
 	// 用闭包变量而不是 this：桩里的 useState 是箭头函数，this 不指向这个对象字面量。
 	let seed = seedValues ?? []
 	let index = 0
 	const noop = () => {}
-	return {
-		_reset(next) { seed = next ?? []; index = 0 },
+	const setters = []
+	const refs = []
+	const effects = []
+	const applied = []
+	const react = {
+		_reset(next) { seed = next ?? []; index = 0; setters.length = 0; refs.length = 0; effects.length = 0; applied.length = 0 },
 		createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat() }),
 		useState: (initial) => {
 			// 按调用顺序喂种子：hook 顺序确定，想跳过「还没加载完」的早返回就得这样 seed。
 			const seeded = seed[index]
+			const hook = index
 			index += 1
-			return [seeded !== undefined ? seeded : initial, noop]
+			const value = seeded !== undefined ? seeded : initial
+			const pair = [value, (next) => {
+				pair[0] = typeof next === 'function' ? next(pair[0]) : next
+				applied.push({ hook, value: pair[0] })
+			}]
+			setters.push(pair)
+			return pair
 		},
-		useEffect: noop,
+		useEffect: options.runEffects === true ? (fn) => { effects.push(fn) } : noop,
 		useCallback: (fn) => fn,
 		useMemo: (fn) => fn(),
-		useRef: () => ({ current: null }),
+		useRef: (initial) => {
+			const ref = { current: initial === undefined ? null : initial }
+			refs.push(ref)
+			return ref
+		},
 		useId: () => 'test-id',
 		// 卡片/页脚用它读可用性：桩直接返回注入的快照，机制本身不在这一层测。
 		useSyncExternalStore: () => seedValues?.__availability ?? { providers: [], hidden: [] }
 	}
+	react._setters = setters
+	react._refs = refs
+	react._effects = effects
+	react._applied = applied
+	return react
 }
 
 /** 把渲染树摊平成一维，方便按 class / 文本查找。 */
@@ -83,7 +122,7 @@ const findByClass = (node, className) => flatten(node).find((n) => n && n.props 
  */
 function bootstrap(options = {}) {
 	const availability = options.availability ?? { providers: [], hidden: [] }
-	const react = createReact(options.seed)
+	const react = createReact(options.seed, options)
 	if (options.seed) options.seed.__availability = availability
 	const slots = []
 	const subscriptions = []
@@ -146,6 +185,7 @@ function bootstrap(options = {}) {
 		slots,
 		subscriptions,
 		calls,
+		react,
 		/**
 		 * 按 slot id 渲染任意卡片，并显式喂 hook 种子。
 		 *
@@ -587,4 +627,148 @@ test('路由是独立的设置分区，排在「模型」(10) 下面、「插件
 	assert.ok(section.order > 10 && section.order < 15)
 	assert.equal(typeof section.label, 'function', '导航文字由注册方提供')
 	assert.equal(hub.slots.some((slot) => slot.name === 'settings.models.footer' && slot.id === 'dsh-llm-hub-routing'), false, '模型页脚不再重复挂一份')
+})
+
+// ── 路由快切 chip 的浮层开关（2026-09-29 浏览器实测）────────────────────────
+// 症状：在浮层里点「智能路由 / 手动模型」或点某个组，按钮高亮变了、状态也切了，
+// 浮层却纹丝不动地盖在输入框上，只能再点一次 chip 才收得回去。
+// 根因：open 只有 chip 按钮一个 toggle 在写，菜单内的所有 onClick 都不碰它，
+// 也没有「点外部 / Esc」的兜底。
+// 这类契约看渲染树验不出来 —— 收不收起发生在事件回调里，只能看 open 被写成什么。
+
+/** chip 的 hook 种子（顺序即 useState 调用顺序）：state / open / busy。 */
+const chipSeed = (open) => [ROUTING_STATE, open, false]
+
+/** 起一个 chip 实例：fetch 桩只答 routing 两条，其余照通用应答。 */
+function chipHub(options = {}) {
+	return bootstrap({
+		runEffects: true,
+		seed: chipSeed(true),
+		fetch: async (url) => ({
+			status: 200,
+			json: async () => (url.endsWith('/routing/state') ? ROUTING_STATE : { ok: true, ...ROUTING_STATE })
+		}),
+		...options
+	})
+}
+/** 把渲染树里 class 命中的第一个节点的 onClick 触发掉。 */
+const clickOf = (tree, className) => {
+	const node = flatten(tree).find((item) => item && item.props && typeof item.props.className === 'string' && item.props.className.includes(className))
+	assert.ok(node, `渲染树里没有 ${className}`)
+	node.props.onClick()
+}
+/**
+ * 按 class **整词**取节点。
+ *
+ * 不能用子串匹配：模式按钮的 class 是 `dsh-llm-hub-route__mode is-on`，
+ * 而容器是 `dsh-llm-hub-route__modes` —— 子串匹配会把容器一起捞进来，
+ * 按下标取「第二个」就取到了 div 而非按钮（第一版就是这么挂的）。
+ */
+const allByClass = (tree, className) => flatten(tree)
+	.filter((item) => item && item.props && typeof item.props.className === 'string'
+		&& item.props.className.split(/\s+/).includes(className))
+/** 让 fetch 链上的 then 跑完。 */
+const settle = () => new Promise((resolve) => { setImmediate(resolve) })
+/** open（第 2 个 useState）有没有被写成 false。 */
+const closedAfter = (hub) => hub.react._applied.some((item) => item.hook === 1 && item.value === false)
+/**
+ * 跑一遍本轮收集到的 effect，并把清理挂在 t.after 上。
+ *
+ * 不清理的话，chip 那个 30s 轮询的 setInterval 会一直吊着事件循环 ——
+ * 用例全绿，node --test 却永远不退出（踩过一次：整轮测试 60s 超时）。
+ */
+function mountEffects(hub, t) {
+	const disposers = hub.react._effects.map((effect) => {
+		const dispose = effect()
+		return typeof dispose === 'function' ? dispose : () => {}
+	})
+	const disposeAll = () => { for (const dispose of disposers) dispose() }
+	if (typeof t?.after === 'function') t.after(disposeAll)
+	return disposeAll
+}
+
+test('路由 chip：点某个组，浮层立刻收起（原来要再点一次 chip）', async () => {
+	const hub = chipHub()
+	const tree = hub.renderSlot('dsh-llm-hub-route-chip', chipSeed(true))
+	assert.ok(findByClass(tree, 'dsh-llm-hub-route__menu'), 'open=true 时浮层要渲染')
+	clickOf(tree, 'dsh-llm-hub-route__group')
+	await settle()
+	assert.ok(closedAfter(hub), '点完组必须收起浮层')
+})
+
+test('路由 chip：切模式，浮层立刻收起', async () => {
+	const hub = chipHub()
+	// ROUTING_STATE 是 smart 模式，所以点「手动模型」才会真的发请求。
+	const tree = hub.renderSlot('dsh-llm-hub-route-chip', chipSeed(true))
+	const modes = allByClass(tree, 'dsh-llm-hub-route__mode')
+	assert.equal(modes.length, 2, '两个模式按钮')
+	modes[1].props.onClick()
+	await settle()
+	assert.ok(closedAfter(hub), '切模式后必须收起浮层')
+	assert.ok(hub.calls.some((call) => call === 'POST /api/dsh-llm-hub/routing/select'), '确实发了切换请求')
+})
+
+test('路由 chip：点当前已生效的模式（无请求可发）也要收起，不能像卡住', async () => {
+	const hub = chipHub()
+	const tree = hub.renderSlot('dsh-llm-hub-route-chip', chipSeed(true))
+	// ROUTING_STATE 已经是 smart，第一个（is-on 的）就是它。
+	const modes = allByClass(tree, 'dsh-llm-hub-route__mode')
+	assert.ok(modes[0].props.className.includes('is-on'), '第一个按钮是当前生效的 smart')
+	modes[0].props.onClick()
+	await settle()
+	assert.ok(closedAfter(hub), '点已生效的模式也要收起浮层')
+	assert.equal(hub.calls.filter((call) => call.startsWith('POST')).length, 0, '本来就没得切，不该发请求')
+})
+
+test('路由 chip：写失败时不收起（免得把失败藏起来）', async () => {
+	const hub = chipHub({
+		fetch: async () => ({ status: 500, json: async () => ({ ok: false }) })
+	})
+	const tree = hub.renderSlot('dsh-llm-hub-route-chip', chipSeed(true))
+	clickOf(tree, 'dsh-llm-hub-route__group')
+	await settle()
+	assert.equal(closedAfter(hub), false, '请求没成功就别收，浮层留着让用户看见没切成功')
+})
+
+test('路由 chip：点浮层外面收起，点里面不收', (t) => {
+	const hub = chipHub()
+	hub.renderSlot('dsh-llm-hub-route-chip', chipSeed(true))
+	mountEffects(hub, t)
+	// refs[0] 是浮层根节点的 ref；给它一个能判 contains 的假根。
+	hub.react._refs[0].current = { contains: (target) => target === 'inside' }
+
+	globalThis.__fireDocument('mousedown', { target: 'inside' })
+	assert.equal(closedAfter(hub), false, '点在浮层内部不能收起（否则菜单里的按钮永远点不到）')
+
+	globalThis.__fireDocument('mousedown', { target: 'elsewhere' })
+	assert.ok(closedAfter(hub), '点浮层外面必须收起')
+})
+
+test('路由 chip：Esc 收起浮层', (t) => {
+	const hub = chipHub()
+	hub.renderSlot('dsh-llm-hub-route-chip', chipSeed(true))
+	mountEffects(hub, t)
+	globalThis.__fireDocument('keydown', { key: 'Escape' })
+	assert.ok(closedAfter(hub), 'Esc 必须能收起浮层')
+})
+
+test('路由 chip：浮层关着时不往 document 挂监听，卸载时卸干净', (t) => {
+	// 量差值：docListeners 是模块级的，会跨用例累积。
+	const before = globalThis.__docListeners('mousedown') + globalThis.__docListeners('keydown')
+
+	const closedHub = chipHub()
+	closedHub.renderSlot('dsh-llm-hub-route-chip', chipSeed(false))
+	mountEffects(closedHub, t)
+	assert.equal(globalThis.__docListeners('mousedown') + globalThis.__docListeners('keydown'), before, 'open=false 时不该往 document 挂任何监听')
+
+	const openHub = chipHub()
+	openHub.renderSlot('dsh-llm-hub-route-chip', chipSeed(true))
+	const unmount = mountEffects(openHub, t)
+	assert.ok(globalThis.__docListeners('mousedown') > before, 'open=true 时要挂上 mousedown')
+
+	// 组件卸载 = effect 的清理函数跑一遍；漏掉就是每开关一次浮层就漏一个 handler。
+	// 注意要用 mountEffects 返回的那份清理，别再跑一遍 effect ——
+	// 那样等于又挂了一对新的，量出来的差值就成了两倍（第一版就是这么错的）。
+	unmount()
+	assert.equal(globalThis.__docListeners('mousedown') + globalThis.__docListeners('keydown'), before, '卸载后监听要卸干净，不能每开关一次漏一个')
 })
