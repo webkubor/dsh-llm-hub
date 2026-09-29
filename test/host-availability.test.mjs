@@ -133,8 +133,11 @@ test('凭据解析不到 → 判不可用，并从 llm.listProviders() 里摘掉
 	assert.equal(modelgo.code, 'CREDENTIAL_MISSING')
 	assert.match(modelgo.reason, /MODELGO_API_KEY_DEAD_DO_NOT_USE/)
 	assert.deepEqual(host.payload.hidden, ['modelgo'])
-	// 关键：过滤真的作用在服务上（composer、/model 弹窗、子代理都读它）
-	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['deepseek-official', 'minimax'])
+	// 关键：过滤真的作用在服务上（composer、/model 弹窗、子代理都读它）。
+	// 顺序 2026-09-29 起改成 minimax 在前：探测把余额信封存成快照后，host 才认得出
+	// MiniMax 是套餐（kind:'plan'）。这条用例本来只钉「modelgo 被摘掉」，顺带把
+	// 套餐优先的顺序也钉住了 —— 旧断言写的 deepseek-official 在前，钉的是 bug 本身。
+	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['minimax', 'deepseek-official'])
 })
 
 test('网关 401/403 → AUTH_REJECTED（key 失效）', async (t) => {
@@ -426,3 +429,25 @@ test('listProviders 排序：套餐排在上面，按量付费排在下面', asy
 	assert.deepEqual(result, ['opencode-go', 'deepseek-official', 'modelgo'], '套餐必须优先排在前面')
 })
 
+test('listProviders 排序：余额信封显示周期限额的 provider 排到按量付费前面（2026-09-29 回归）', async (t) => {
+	// 回归：host 的 billingModeOf 只传了 profile、没传 balance，于是 detectBillingMode 里
+	// 认 kind:'plan' / resetsAt / weeklyPercent 的那几条分支全是死代码，最后一律落到兜底的
+	// `return 'usage'`。2026-09-29 实测 MiniMax 的余额信封是
+	// {kind:'plan', items:[{resetsAt:'15:00', weeklyPercent:97}]}，配置卡片显示「套餐」是对的
+	// （client 传了 balance），下拉排序却把它当按量付费 —— 两边对不上就是这么来的。
+	// 这条用例必须真跑探测：balance 快照是探测时顺手存的，probe:false 复现不出这个洞。
+	process.env.MINIMAX_API_KEY = 'mm-live'
+	globalThis.fetch = async (url) => {
+		const u = String(url)
+		if (u.includes('minimaxi.com') && u.includes('/models')) return json({ data: [{ id: 'MiniMax-M3' }] })
+		if (u.includes('token_plan/remains')) return json({ model_remains: [{ model_name: 'M3', current_interval_remaining_percent: 80, current_weekly_remaining_percent: 97 }] })
+		throw new Error(`不该请求: ${u}`)
+	}
+	const routes = [{ id: 'deepseek-official', name: 'DeepSeek' }, { id: 'minimax', name: 'MiniMax' }]
+	const host = await boot(t, {
+		providers: { minimax: { displayName: 'MiniMax', apiKeyEnv: 'MINIMAX_API_KEY', api: 'openai-completions', baseURL: 'https://api.minimaxi.com/v1', models: [{ id: 'MiniMax-M3' }] } },
+		routes,
+		deepseek: false
+	})
+	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['minimax', 'deepseek-official'], '有周期限额的套餐必须排在按量付费前面')
+})
