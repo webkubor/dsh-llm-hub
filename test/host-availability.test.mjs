@@ -59,7 +59,12 @@ function createHost(options = {}) {
 		logger: { warn: (message) => warnings.push(String(message)), info: () => {} },
 		inject: () => {},
 		get: (name) => {
-			if (name === 'settings') return { get: (ns) => sections[ns] }
+			// 0.1.7：settings 服务没有 get(ns) 了，跨插件读走 describe()。
+			// 桩两种都给：插件走哪条都能测到，形状与真服务一致。
+			if (name === 'settings') return {
+				get: (ns) => sections[ns],
+				describe: () => Object.entries(sections).map(([ns, value]) => ({ ns, value }))
+			}
 			if (name === 'llm') return llm
 			return undefined
 		},
@@ -88,7 +93,14 @@ function createHost(options = {}) {
 		return { status, body: body === '' ? null : JSON.parse(body) }
 	}
 
-	return { ctx, routes, listeners, emitted, warnings, call, getLlm: () => llm, dispose: () => disposers.forEach((fn) => fn()) }
+	// 0.1.7：配置改由 apply(ctx, config) 注入（不再运行时 register）。
+	// 这里按 cordis 的形状造：每个字段是带 .get() 的 ref。
+	const hubConfig = {
+		routing: { get: () => sections['dsh-llm-hub']?.routing },
+		warning: { get: () => sections['dsh-llm-hub']?.warning },
+		aliases: { get: () => sections['dsh-llm-hub']?.aliases }
+	}
+	return { ctx, config: hubConfig, routes, listeners, emitted, warnings, call, getLlm: () => llm, dispose: () => disposers.forEach((fn) => fn()) }
 }
 
 /** 一个 JSON 响应（用真的 Response，好让 readBounded 能读流）。 */
@@ -109,7 +121,7 @@ async function boot(t, options) {
 	const mod = await import('../lib/index.js')
 	const host = createHost(options)
 	t.after(() => host.dispose())
-	mod.apply(host.ctx)
+	mod.apply(host.ctx, host.config)
 	const payload = options?.probe === false ? null : (await host.call('/api/dsh-llm-hub/availability/recheck', 'POST')).body
 	return { ...host, payload }
 }
@@ -265,7 +277,7 @@ test('被隐藏后仍会被重探 → 能恢复（「隐藏即永久」回归）
 		deepseek: false
 	})
 	t.after(() => host.dispose())
-	mod.apply(host.ctx)
+	mod.apply(host.ctx, host.config)
 
 	const first = (await host.call('/api/dsh-llm-hub/availability/recheck', 'POST')).body
 	assert.equal(verdictOf(first, 'minimax').state, 'unavailable')
@@ -295,7 +307,7 @@ test('MiniMax 5小时限额用尽（QUOTA_EXHAUSTED）不抹除下拉，配额�
 		deepseek: false
 	})
 	t.after(() => host.dispose())
-	mod.apply(host.ctx)
+	mod.apply(host.ctx, host.config)
 
 	// 1) 5 小时配额耗尽（0%）
 	const first = (await host.call('/api/dsh-llm-hub/availability/recheck', 'POST')).body

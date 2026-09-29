@@ -30,6 +30,8 @@ function createHost({ sections = {}, settingsFail = false } = {}) {
 		listeners: []
 	}
 	const settingsService = {
+		// 0.1.7：没有 get(ns) 了，跨插件读走 describe()；两种都给，形状与真服务一致。
+		describe: () => Object.entries(state.sections).map(([ns, value]) => ({ ns, value })),
 		get: (ns) => state.sections[ns],
 		update: async (ns, payload) => {
 			if (settingsFail) throw new Error('settings update forced to fail')
@@ -68,7 +70,13 @@ function createHost({ sections = {}, settingsFail = false } = {}) {
 			})
 		}
 	}
-	return { ctx, settingsService, state }
+	// 0.1.7：配置由 apply(ctx, config) 注入（不再运行时 register）。
+	const hubConfig = {
+		routing: { get: () => state.sections['dsh-llm-hub']?.routing },
+		warning: { get: () => state.sections['dsh-llm-hub']?.warning },
+		aliases: { get: () => state.sections['dsh-llm-hub']?.aliases }
+	}
+	return { ctx, config: hubConfig, settingsService, state }
 }
 
 /**
@@ -78,7 +86,7 @@ function createHost({ sections = {}, settingsFail = false } = {}) {
 async function boot(sections) {
 	const mod = await import('../lib/index.js')
 	const host = createHost({ sections })
-	mod.apply(host.ctx)
+	mod.apply(host.ctx, host.config)
 	// 等 patch 跑完：最多 1 秒，每轮一个 setImmediate 让 cordis fiber tick
 	const start = Date.now()
 	while (host.state.updates.length === 0 && Date.now() - start < 1000) {
@@ -202,7 +210,7 @@ test('TOCTOU 防护：fetch 期间用户填了 models，写入时被过滤掉', 
 		return new Response(JSON.stringify({ data: [{ id: 'fetched-a' }] }), { status: 200 })
 	}
 	const mod = await import('../lib/index.js')
-	mod.apply(host.ctx)
+	mod.apply(host.ctx, host.config)
 
 	// 等 plugin 走完 boot patch
 	const start = Date.now()

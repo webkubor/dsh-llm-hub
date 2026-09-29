@@ -2,6 +2,37 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.8.0] - 2026-09-29
+
+### 🔧 适配 DSH 0.1.7 的 settings 架构（升级到 0.1.7 后配置读不到的那版）
+
+**症状**：升到 DSH 0.1.7 后，路由组「凭空消失」—— chip 不渲染，设置页路由卡是空的，
+写接口一律拒绝。数据其实好好躺在配置里，只是没人读。
+
+**根因**：0.1.7 把 settings 架构整个换掉了。`settings.register(ns, schema)` 和
+`settings.get(ns)` 双双消失（0.1.5 的 `dsh-settings` 里有 20 处 `register` 引用，
+0.1.7 是 0 处）。老代码里 `settings.register(...)` 抛 `TypeError` 被 catch 吞掉，
+`hubRegistered` 恒为 false，于是整个 `dsh-llm-hub` 段的读写全部短路。
+
+**改造**
+- 导出 `Config`，配置改由 `apply(ctx, config)` 注入（0.1.7 的官方姿势，
+  `@deepseek-ai/dsh-llm-pi-ai` 的 providers 段同款）
+- 读自己的段走 `config.routing.get()`；读**别人**的段（`llm-pi-ai` / `llm-deepseek`）
+  走 `settings.describe()` —— 0.1.7 里那是唯一的跨插件读法
+- 拆掉 `hubRegistered` 守卫（该概念已不存在）
+- 三个字段全部标 `.volatile()`：`settings.update()` 拒绝「没有 volatile 字段的条目」
+  （原话：`Plugin entry "dsh-llm-hub" has no volatile fields`），而 volatile 的语义
+  正是本插件要的 —— 路由组/预警/别名都是每次请求惰性重读的，切一次路由不该重跑 apply
+- `@deepseek-ai/schemastery` 加为 **devDependency**（静态 import 需要它才能加载；
+  运行时依赖仍是零 —— 它由 DSH 宿主提供）
+
+**配置迁移**：0.1.7 启动时把全局 `settings.yaml` 迁进 profile 的 `cordis.patch.yml`
+并把原文件改名为 `settings.yaml.imported`。本插件的段需要一条 `dsh-llm-hub` entry；
+未迁移时该段读为空，也就是上面那个症状。
+
+**验证**：157 个单测 + 门禁全过；真机确认路由组、设置页路由卡、跨插件读（balance 能
+解析出真实 key）、写路径（`routing/select` 200）全部恢复。
+
 ## [1.7.0] - 2026-09-29
 
 ### 🧭 路由设置卡：始终折叠，展开才编辑
