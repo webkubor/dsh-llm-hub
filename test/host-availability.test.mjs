@@ -451,3 +451,48 @@ test('listProviders 排序：余额信封显示周期限额的 provider 排到�
 	})
 	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['minimax', 'deepseek-official'], '有周期限额的套餐必须排在按量付费前面')
 })
+
+test('余额接口确知「没有套餐」→ ACCOUNT_UNAVAILABLE 并从下拉摘掉（2026-09-29 回归）', async (t) => {
+	// 回归：available=false 过去只有一种含义，于是「连不上 / 看不懂 / 没这个接口」和
+	// 「上游确知你这个号没有套餐」被混为一谈，后者也被 fail-open 放过了。
+	// 2026-09-29 实测智谱 coding 端点白纸黑字回「当前用户不存在coding plan」，
+	// 欠费却一直留在下拉里，一点就报 429。两者拿不准的程度不同：前者 fail-open，
+	// 后者是确凿证据，该判死。
+	process.env.ZAI_CODING_CN_API_KEY = 'zai-live'
+	globalThis.fetch = async (url) => {
+		const u = String(url)
+		if (u.includes('/api/monitor/usage/quota/limit')) return json({ success: false, code: 1113, msg: '当前用户不存在coding plan' })
+		throw new Error(`不该请求: ${u}`)
+	}
+	const routes = [{ id: 'zai-coding-cn', name: '智谱' }, { id: 'minimax', name: 'MiniMax' }]
+	const host = await boot(t, {
+		providers: { 'zai-coding-cn': { displayName: '智谱', apiKeyEnv: 'ZAI_CODING_CN_API_KEY', models: [{ id: 'glm-5.3' }] } },
+		routes,
+		deepseek: false
+	})
+	const verdict = verdictOf(host.payload, 'zai-coding-cn')
+	assert.equal(verdict.state, 'unavailable')
+	assert.equal(verdict.code, 'ACCOUNT_UNAVAILABLE')
+	assert.match(verdict.reason, /coding plan/)
+	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['minimax'], '确知没套餐的 provider 必须从下拉摘掉')
+})
+
+test('余额查询失败（连不上）仍然 fail-open：不隐藏（2026-09-29 回归的另一半）', async (t) => {
+	// definitive 的反面：查不通是「拿不准」，不是「确知不可用」。
+	// 一次网络抖动就把能用的模型藏掉，用户连试的机会都没有 —— 这条守住原来的 fail-open。
+	process.env.ZAI_CODING_CN_API_KEY = 'zai-live'
+	globalThis.fetch = async (url) => {
+		const u = String(url)
+		if (u.includes('/api/monitor/usage/quota/limit')) throw new Error('ECONNRESET')
+		throw new Error(`不该请求: ${u}`)
+	}
+	const routes = [{ id: 'zai-coding-cn', name: '智谱' }]
+	const host = await boot(t, {
+		providers: { 'zai-coding-cn': { displayName: '智谱', apiKeyEnv: 'ZAI_CODING_CN_API_KEY', models: [{ id: 'glm-4.7' }] } },
+		routes,
+		deepseek: false
+	})
+	assert.notEqual(verdictOf(host.payload, 'zai-coding-cn').code, 'ACCOUNT_UNAVAILABLE')
+	assert.deepEqual(host.getLlm().listProviders().map((p) => p.id), ['zai-coding-cn'], '查不通不等于不可用，必须保留')
+})
+
