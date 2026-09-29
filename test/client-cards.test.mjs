@@ -493,6 +493,26 @@ const ROUTING_CATALOG = {
 function routingSeed(state, draft, savedKey) {
 	return [state, ROUTING_CATALOG.providers, draft, state.activeGroup, state.activeGroup, { provider: '', model: '' }, false, null, savedKey]
 }
+
+/** 两个组的状态快照：验「展开的组 / 折叠的组并存」必须有第二组。 */
+function twoGroupState() {
+	return {
+		...ROUTING_STATE,
+		groups: [
+			ROUTING_STATE.groups[0],
+			{
+				id: 'personal',
+				label: '个人',
+				candidates: [
+					{ provider: 'deepseek-official', model: 'deepseek-flash', state: 'available' },
+					{ provider: 'modelgo-gateway', model: 'gpt-5.5', state: 'unavailable' }
+				],
+				wouldRoute: { provider: 'deepseek-official', model: 'deepseek-flash' },
+				reason: null
+			}
+		]
+	}
+}
 /** 与 host 侧同一套「草稿指纹」（label 空 → null）。 */
 function routingKeyOf(draft) {
 	return JSON.stringify(draft
@@ -586,14 +606,90 @@ test('添加提供方草稿卡：不渲染原卡内容（避免把「还没保�
 })
 
 // ── 1.7.0 路由编辑器：原地改 / 设为主力 / 备注 / 默认展开 / 自动保存 ──
-test('路由卡：当前组默认展开（不用先找「▸ 1」），开合是写明「编辑 / 收起」的按钮', () => {
+// ── 1.6.2 折叠模型：始终折叠，展开才编辑 ────────────────────────────────
+// 反转了 1.7.0 的「当前组默认展开」。理由：进设置页要回答的是「这几组各自会路由到
+// 哪」，折叠行就答完了；而逐条候选是低频编辑动作，默认展开等于一进来就糊一屏表单。
+// 「看一眼」和「改」是两种意图，默认态应该服务于前者。
+test('路由卡：默认全折叠（当前组也不展开），开合是写明「编辑 / 收起」的按钮', () => {
 	const hub = bootstrap()
 	const draft = draftOf(ROUTING_STATE)
 	const seed = routingSeed(ROUTING_STATE, draft, routingKeyOf(draft))
-	seed[4] = null // expanded：没手动开合过
+	seed[4] = null // expanded：还没开合过
 	const tree = hub.renderSlot('dsh-llm-hub-routing', seed)
-	assert.ok(findByClass(tree, 'dsh-llm-hub-routing__candidates'), '当前组默认展开')
-	assert.ok(textsOf(tree).some((text) => text.includes('routeCollapse')), '展开态按钮写「收起」')
+	assert.equal(findByClass(tree, 'dsh-llm-hub-routing__candidates'), undefined, '默认不该展开任何组（当前组也不例外）')
+	assert.ok(textsOf(tree).some((text) => text.includes('routeEdit')), '折叠态按钮写「编辑」')
+	// 组名折叠时是纯文本 —— 折叠行还摆输入框，会让「在编辑」和「在显示」长得一样。
+	assert.equal(findByClass(tree, 'dsh-llm-hub-routing__group-label'), undefined, '折叠态不该有组名输入框')
+	assert.ok(findByClass(tree, 'dsh-llm-hub-routing__group-name'), '折叠态组名是纯文本')
+})
+
+test('路由卡：折叠行把「会路由到哪」顶在最前，紧跟可用/总', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	// expanded 指向一个不存在的组 => 全部折叠，这是断言折叠态最干净的办法
+	const seed = routingSeed(ROUTING_STATE, draft, routingKeyOf(draft))
+	seed[4] = '__none__'
+	const tree = hub.renderSlot('dsh-llm-hub-routing', seed)
+	const state = flatten(tree).find((node) => node && node.props && node.props.className === 'dsh-llm-hub-routing__group-state')
+	assert.ok(state, '折叠行要有摘要')
+	// textsOf 是前序遍历，顺序即渲染顺序 —— 这里要的就是「谁排在前面」
+	const texts = textsOf(state)
+	assert.ok(texts[0].startsWith('→ modelgo-gateway/claude-sonnet-5'), `第一段必须是会路由到哪，实际: ${texts[0]}`)
+	// 可用/总：2 个候选里 1 个 unavailable
+	assert.equal(texts[1], '1/2', '紧跟着报「可用/总数」')
+	// 折叠行不放「主力」和「+N 兜底」：564px 宽的内容区里塞不下（浏览器实测会被压成
+	// 「将路由到 m…」「主力 mod…」），而「主力」展开态第一行就有，「1/2」已含总数。
+	assert.ok(!texts.some((text) => text.startsWith('routingPrimary')), '折叠行不该再放主力 —— 那是第四件事，挤掉最该读的')
+	assert.ok(!texts.some((text) => text.includes('routeFallbackCount')), '「+N 兜底」与「可用/总」同义，不重复占位')
+	// 箭头的全称进 title，悬停可见
+	const would = flatten(state).find((node) => node && node.props && node.props.className === 'dsh-llm-hub-routing__group-would')
+	assert.match(would.props.title, /^routeChipWouldRoute /, 'title 里要有全称')
+})
+
+test('路由卡：组健康点分三色（全可用 / 还剩几个 / 一个不剩）', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const dotOf = (state) => {
+		const seed = routingSeed(state, draft, routingKeyOf(draft))
+		seed[4] = '__none__'
+		const tree = hub.renderSlot('dsh-llm-hub-routing', seed)
+		const st = flatten(tree).find((node) => node && node.props && node.props.className === 'dsh-llm-hub-routing__group-state')
+		return flatten(st).find((node) => node && node.props && typeof node.props.className === 'string' && node.props.className.includes('dsh-llm-hub-routing__dot--')).props.className
+	}
+	const withStates = (states) => ({ ...ROUTING_STATE, groups: [{ ...ROUTING_STATE.groups[0], candidates: ROUTING_STATE.groups[0].candidates.map((c, i) => ({ ...c, state: states[i] })) }] })
+	// 半可用单独一色：混成全绿会让人以为不用管，混成全红会误报故障
+	assert.match(dotOf(withStates(['available', 'unavailable'])), /--degraded$/, '还剩几个 = degraded')
+	assert.match(dotOf(withStates(['available', 'available'])), /--available$/, '全可用 = available')
+	assert.match(dotOf(withStates(['unavailable', 'unavailable'])), /--unavailable$/, '一个不剩 = unavailable')
+})
+
+test('路由卡：展开的组给组名输入框，折叠的组不给（一个时刻只有一处能改名）', () => {
+	const hub = bootstrap()
+	const twoGroups = twoGroupState()
+	const draft = draftOf(twoGroups)
+	// expanded = 'company'：公司展开、个人折叠
+	const tree = hub.renderSlot('dsh-llm-hub-routing', routingSeed(twoGroups, draft, routingKeyOf(draft)))
+	assert.equal(flatten(tree).filter((n) => n && n.props && n.props.className === 'dsh-llm-hub-routing__group-label').length, 1, '只有展开的组有输入框')
+	assert.equal(flatten(tree).filter((n) => n && n.props && n.props.className === 'dsh-llm-hub-routing__group-name').length, 1, '折叠的组用纯文本')
+})
+
+test('路由卡：某组全不可用时，折叠行直说原因而不是空白', () => {
+	const hub = bootstrap()
+	const draft = draftOf(ROUTING_STATE)
+	const dead = { ...ROUTING_STATE, groups: [{ ...ROUTING_STATE.groups[0], wouldRoute: null, reason: '全部候选额度耗尽' }] }
+	const seed = routingSeed(dead, draft, routingKeyOf(draft))
+	seed[4] = '__none__'
+	const tree = hub.renderSlot('dsh-llm-hub-routing', seed)
+	const state = flatten(tree).find((node) => node && node.props && node.props.className === 'dsh-llm-hub-routing__group-state')
+	const texts = textsOf(state)
+	// 关键在「排第一」：旧版把 reason 挂在主力**后面**当补充，新版让它顶替
+	// 「会路由到哪」那个位置 —— 不可用原因和可路由目标是同一个槽位，不是两件事。
+	assert.ok(texts[0].includes('全部候选额度耗尽'), `原因要顶在第一段，实际: ${texts[0]}`)
+	assert.ok(!texts[0].startsWith('→'), '没有可路由目标时不该还说「→」')
+	// 不可用原因通常很长，这一行没有第二行给它 —— 必须能被截断而不是撑破布局
+	const would = flatten(state).find((node) => node && node.props && node.props.className === 'dsh-llm-hub-routing__group-would')
+	assert.ok(would, '原因要落在会路由到那个槽位上')
+	assert.ok(texts[1] && /^\d+\/\d+$/.test(texts[1]), `不可用也要报「可用/总」，实际: ${texts[1]}`)
 })
 
 test('路由卡：非主力候选有「设为主力」，每个候选有备注输入', () => {
