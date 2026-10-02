@@ -30,10 +30,14 @@ On DSH's Models page, the official adapters leave half the job undone. This plug
 > Only Node.js is required — **no global dsh install**; upstream's official entry is `npx @deepseek-ai/dsh`. If dsh is installed globally, use `dsh` instead.
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add @dsh-plugins/dsh-llm-hub
+npx @deepseek-ai/dsh plugin --profile <your-profile> add @dsh-plugins/dsh-llm-hub
 ```
 
-Add `@dsh-plugins/dsh-llm-hub` to `dsh.profile.bundles` in `~/.dsh/profiles/web/package.json`, then restart DSH (stop it and rerun `npx @deepseek-ai/dsh web`).
+> **Desktop app users**: the official Electron app owns the `desktop` profile exclusively — the CLI
+> refuses plugin operations on it (`profile "desktop" is managed exclusively by the Electron application`).
+> Install and update from the plugin manager inside the app; the CLI form above is for self-managed profiles.
+
+Add `@dsh-plugins/dsh-llm-hub` to `dsh.profile.bundles` in `~/.dsh/profiles/<your-profile>/package.json`, then restart the DSH desktop app (quit and reopen it).
 Open **Settings → Models** — a new row appears under the provider cards.
 
 <sub>A boot-graph change requires a restart; hot reload won't pick it up. `cordis.patch.yml` is inserted automatically by the bundle mechanism.</sub>
