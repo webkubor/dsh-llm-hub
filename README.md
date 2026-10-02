@@ -48,11 +48,10 @@ DSH 的模型页上，官方适配器有一半事情没做。这个插件把它�
 > 前提：装好 Node.js 即可，**无需全局安装 dsh** —— 官方入口就是 `npx @deepseek-ai/dsh`。已全局安装的可把它换成 `dsh`。
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add @dsh-plugins/dsh-llm-hub
+npx @deepseek-ai/dsh plugin --profile <你的 profile> add @dsh-plugins/dsh-llm-hub
 ```
 
-再把 `@dsh-plugins/dsh-llm-hub` 加进 `~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 数组，
-然后重启 DSH（结束当前进程后重新运行 `npx @deepseek-ai/dsh web`）。打开**设置 → 模型**，provider 卡片下方会多出一行。
+再把 `@dsh-plugins/dsh-llm-hub` 加进该 profile 的 `package.json` 的 `dsh.profile.bundles` 数组，然后重启 DSH。打开**设置 → 模型**，provider 卡片下方会多出一行。
 
 <sub>boot graph 变了必须重启，热载不生效；`cordis.patch.yml` 由 bundle 机制自动 insert。</sub>
 
@@ -84,7 +83,7 @@ npx @deepseek-ai/dsh plugin --profile web add @dsh-plugins/dsh-llm-hub
 升级：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web update @dsh-plugins/dsh-llm-hub@^1.5.1
+npx @deepseek-ai/dsh plugin --profile <你的 profile> update @dsh-plugins/dsh-llm-hub@^1.5.1
 # 重启 DSH
 ```
 
@@ -499,11 +498,17 @@ publish。Release 的存在性单独探测，所以「npm 发成功但 Release �
   <a href="https://github.com/webkubor/dsh-env-inspector">🖥️ 电脑环境</a>
 </p>
 
-一行装齐（只需 Node.js），装完重启 DSH 即可：
+一行装齐（只需 Node.js），装完重启 DSH 即可。**把 `PROFILE` 换成你自己的 profile 名**：
 
 ```bash
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-bloom-theme @dsh-plugins/dsh-llm-hub @dsh-plugins/dsh-user-mirror @dsh-plugins/dsh-env-inspector && node -e 'const f=(process.env.DSH_HOME||require("os").homedir()+"/.dsh")+"/profiles/web/package.json",p=require(f),b=p.dsh.profile.bundles;for(const n of Object.keys(p.dependencies))if(/^(dsh-bloom-theme|@dsh-plugins\/)/.test(n)&&!b.includes(n))b.push(n);require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
+PROFILE=<你的 profile>
+npx -y @deepseek-ai/dsh plugin --profile "$PROFILE" add dsh-bloom-theme @dsh-plugins/dsh-llm-hub @dsh-plugins/dsh-user-mirror @dsh-plugins/dsh-env-inspector && PROFILE="$PROFILE" node -e 'const f=(process.env.DSH_HOME||require("os").homedir()+"/.dsh")+"/profiles/"+process.env.PROFILE+"/package.json",p=require(f),b=p.dsh.profile.bundles;for(const n of Object.keys(p.dependencies))if(/^(dsh-bloom-theme|@dsh-plugins\/)/.test(n)&&!b.includes(n))b.push(n);require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
 ```
+
+> **桌面端用户**：官方 Electron 端独占 `desktop` profile，命令行对它做插件操作会被拒
+> （`profile "desktop" is managed exclusively by the Electron application`）——
+> 请在应用内的**插件管理**里安装与升级。下面的 CLI 写法只适用于自建 profile。
+
 
 ---
 
