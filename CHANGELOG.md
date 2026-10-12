@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.2](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.1...v1.9.2) (2026-10-12)
+
+
+### 🛠️ CI / Build
+
+* **release:** 接上 release-please，发版从此零人工 ([e975cdc](https://github.com/webkubor/dsh-llm-hub/commit/e975cdca0bfee076ede799255f232662ae15dff0))
+
 ## [1.9.1] - 2026-10-12
 
 ### 🐛 安装文案指向一个已经退役的 profile
