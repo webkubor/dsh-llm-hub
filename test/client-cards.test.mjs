@@ -430,6 +430,10 @@ test('家族 Dock：entries 形状不对（不是数组）也走「判定不可�
 test('家族 Dock：复制出的安装命令必须是能跑的（带 --profile）', () => {
 	// `dsh plugin` 是 pnpm 的透传层，--profile 是必填选项，漏了直接报错退出 ——
 	// 复制出去的命令跑不通，比不给命令更糟。
+	//
+	// ⚠️ 2026-10-12 改：原来这里断言的是 `--profile web`，把 2026-10-02 已退役的
+	// web profile 焊死在了测试里 —— 文案和测试一起错，反而没人发现。断言只钉**意图**
+	// （必须带 --profile），profile 名一律用占位符，由用户按自己实际的填。
 	const written = []
 	// Node 24 的 navigator 只有 getter，得用 defineProperty 覆盖而不是直接赋值。
 	Object.defineProperty(globalThis, 'navigator', {
@@ -440,7 +444,11 @@ test('家族 Dock：复制出的安装命令必须是能跑的（带 --profile�
 		const tree = bootstrap({ boot: [] }).renderSuite()
 		findByClass(tree, 'dsh-suite-btn-action').props.onClick()
 		assert.equal(written.length, 1)
-		assert.match(written[0], /^dsh plugin --profile web add @dsh-plugins\//, `实际复制: ${written[0]}`)
+		assert.match(written[0], /dsh plugin --profile <你的profile名> add @dsh-plugins\//, `实际复制: ${written[0]}`)
+		// 已退役的 profile 名不许再出现在用户可见的安装指引里。
+		assert.doesNotMatch(written[0], /profiles\/web\b/, `复制文案里仍有已退役的 web profile: ${written[0]}`)
+		// 桌面端 app 是当前宿主，安装指引必须给出 app 插件管理这条路。
+		assert.match(written[0], /插件管理/, `复制文案缺桌面端 app 安装路径: ${written[0]}`)
 	} finally {
 		Object.defineProperty(globalThis, 'navigator', { configurable: true, value: undefined })
 	}
