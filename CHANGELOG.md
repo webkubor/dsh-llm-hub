@@ -2,6 +2,15 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.3](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.2...v1.9.3) (2026-10-12)
+
+
+### 🐛 Bug Fixes
+
+* **release:** auto-merge 挂不上时兜底直接合并 ([a2c3a99](https://github.com/webkubor/dsh-llm-hub/commit/a2c3a99d7bb084da9272cf6d9c4e07f1f5386ebb))
+* **release:** mergeable_state 是异步的，unknown 要等而不是放弃 ([6aa052b](https://github.com/webkubor/dsh-llm-hub/commit/6aa052b5f9b76424b5dd939591be43db9117f33d))
+* **release:** 等 check 跑完再挂 auto-merge ([5e504f6](https://github.com/webkubor/dsh-llm-hub/commit/5e504f64c3ecba69918d0a3125ab16aa3ccc9dcb))
+
 ## [1.9.2](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.1...v1.9.2) (2026-10-12)
 
 
