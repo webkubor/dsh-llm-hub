@@ -2,6 +2,14 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.5](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.4...v1.9.5) (2026-10-12)
+
+
+### 🐛 Bug Fixes
+
+* **release:** blocked 不再一读到就判死 ([9e650e7](https://github.com/webkubor/dsh-llm-hub/commit/9e650e72f1d97264945373b4bef0f3ea20957477))
+* **release:** 删掉 checks.listForRef 那层判据，只认 mergeable_state ([ae7df16](https://github.com/webkubor/dsh-llm-hub/commit/ae7df165b49dd8fa330e15409bcdfcfc13036efd))
+
 ## [1.9.4](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.3...v1.9.4) (2026-10-12)
 
 
