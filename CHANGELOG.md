@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.3](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.2...v1.9.3) (2026-10-12)
+
+
+### 🐛 Bug Fixes
+
+* **release:** 等 check 跑完再挂 auto-merge ([5e504f6](https://github.com/webkubor/dsh-llm-hub/commit/5e504f64c3ecba69918d0a3125ab16aa3ccc9dcb))
+
 ## [1.9.2](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.1...v1.9.2) (2026-10-12)
 
 
