@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.6](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.5...v1.9.6) (2026-10-18)
+
+
+### 🐛 Bug Fixes
+
+* **release:** 自动解除机器人 review thread 阻塞并添加定时发版巡检 ([a0d225c](https://github.com/webkubor/dsh-llm-hub/commit/a0d225c8524a2fe658e0601ade851209ba8af1dd))
+
 ## [1.9.5](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.4...v1.9.5) (2026-10-12)
 
 
