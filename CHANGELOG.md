@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.7](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.6...v1.9.7) (2026-10-25)
+
+
+### 📝 Documentation
+
+* 补齐 AI 可读性三件套缺口 ([0445fc5](https://github.com/webkubor/dsh-llm-hub/commit/0445fc511e30af45164b2a10f252b7bc9c7b00e0))
+
 ## [1.9.6](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.5...v1.9.6) (2026-10-18)
 
 
