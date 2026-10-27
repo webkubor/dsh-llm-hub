@@ -71,14 +71,14 @@ npx @deepseek-ai/dsh plugin --profile <你的 profile> add @dsh-plugins/dsh-llm-
 1. **套餐 vs 按量付费**：每个 provider 卡片新增 billing capsule，左边"按量付费"右边"套餐"，
    自动按 5 层 fallback 识别云端账单类型（settings → `/status` → `/token_plan/remains`
    → `/usage/quota/limit` → `/user/balance`），手动点另一边切模式即写回 settings。
-   ![](assets/02-billing-capsule.svg)
+   ![](https://cdn.jsdelivr.net/gh/webkubor/free-imgbed@main/dsh-llm-hub/02-billing-capsule.svg)
 2. **LLM 下拉套餐优先**：composer 模型选择器按当前 provider 的 billingMode 把套餐模型
    置顶（绿色「套餐」徽章段），按量模型跟在后面。**不**自动改路由、不隐藏按量。
-   ![](assets/03-model-dropdown-priorities.svg)
+   ![](https://cdn.jsdelivr.net/gh/webkubor/free-imgbed@main/dsh-llm-hub/03-model-dropdown-priorities.svg)
 3. **家族面板真实激活探测（修 bug）**：设置 → 模型 → 底部「Webkubor DSH 扩展家族」，
    之前的版本不管装几个插件永远只亮自己。改读 `window.__DSH_BOOT__.entries`
    做真实激活探测，读不到时显示「判定不可用」而非谎报「没装」。
-   ![](assets/01-family-dock.svg)
+   ![](https://cdn.jsdelivr.net/gh/webkubor/free-imgbed@main/dsh-llm-hub/01-family-dock.svg)
 
 升级：
 
@@ -502,7 +502,7 @@ publish。Release 的存在性单独探测，所以「npm 发成功但 Release �
 
 ```bash
 PROFILE=<你的 profile>
-npx -y @deepseek-ai/dsh plugin --profile "$PROFILE" add dsh-bloom-theme @dsh-plugins/dsh-llm-hub @dsh-plugins/dsh-user-mirror @dsh-plugins/dsh-env-inspector && PROFILE="$PROFILE" node -e 'const f=(process.env.DSH_HOME||require("os").homedir()+"/.dsh")+"/profiles/"+process.env.PROFILE+"/package.json",p=require(f),b=p.dsh.profile.bundles;for(const n of Object.keys(p.dependencies))if(/^(dsh-bloom-theme|@dsh-plugins\/)/.test(n)&&!b.includes(n))b.push(n);require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
+npx -y @deepseek-ai/dsh plugin --profile "$PROFILE" add dsh-bloom-theme @dsh-plugins/dsh-llm-hub && PROFILE="$PROFILE" node -e 'const f=(process.env.DSH_HOME||require("os").homedir()+"/.dsh")+"/profiles/"+process.env.PROFILE+"/package.json",p=require(f),b=p.dsh.profile.bundles;for(const n of Object.keys(p.dependencies))if(/^(dsh-bloom-theme|@dsh-plugins\/)/.test(n)&&!b.includes(n))b.push(n);require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
 ```
 
 > **桌面端用户**：官方 Electron 端独占 `desktop` profile，命令行对它做插件操作会被拒
