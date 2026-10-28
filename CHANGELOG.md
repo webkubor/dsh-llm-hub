@@ -2,6 +2,18 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.8](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.7...v1.9.8) (2026-10-28)
+
+
+### 🐛 Bug Fixes
+
+* **test:** README 旧包名守卫误报 CDN 图片地址 ([1709d25](https://github.com/webkubor/dsh-llm-hub/commit/1709d257904b8ad0caabd479ccc2af88cc7cd3e6))
+
+
+### 📝 Documentation
+
+* README 素材迁入 free-imgbed 图床（本地相对路径 → CDN 直链） ([34c7aad](https://github.com/webkubor/dsh-llm-hub/commit/34c7aad183c3c2f942cf1a17452a1fecfcc3cbeb))
+
 ## [1.9.7](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.6...v1.9.7) (2026-10-25)
 
 
