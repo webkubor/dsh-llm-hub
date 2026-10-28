@@ -21,7 +21,16 @@ for (const f of ['README.md', 'README.en.md']) {
   test(`${f} 里没有本包的旧包名`, () => {
     const text = readFileSync(url, 'utf8')
     // CHANGELOG 式的历史叙述不在 README 里，README 出现的都该是当前名
+    //
+    // 2026-10-28 修一处误报：正则 `/@[\w-]+\/[\w.-]+/g` 会把 jsDelivr 的
+    // CDN 图片地址（`cdn.jsdelivr.net/gh/webkubor/free-imgbed@main/dsh-llm-hub/xx.svg`）
+    // 里的 `@main/dsh-llm-hub` 当成旧 scope 包名 —— 这里的 `@main` 是 git ref
+    // （分支名），后面跟的是**仓库内路径**，不是 npm 包名。
+    // 判据：只有当 @ 之后那段**确实像一个 npm scope**（与当前包名的 scope 同形）
+    // 才算包名候选。已知的 git ref（main/master/develop/…）直接排除。
+    const GIT_REFS = new Set(['main', 'master', 'develop', 'dev', 'HEAD', 'next', 'release'])
     const scoped = [...new Set(text.match(/@[\w-]+\/[\w.-]+/g) || [])]
+      .filter((n) => !GIT_REFS.has(n.slice(1).split('/')[0]))
     const stale = scoped.filter((n) => n.split('/')[1] === bare && n !== pkg.name)
     assert.deepEqual(
       stale, [],
