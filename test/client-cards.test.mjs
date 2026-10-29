@@ -378,44 +378,42 @@ test('harness：可执行文件路径进 tooltip（「装了却不生效」第�
 /** 一个 boot graph entry 的最小形状。 */
 const bootEntry = (id) => ({ id, url: `/plugins/??${id}/client.js&rev=x`, rev: 'x' })
 
-test('家族 Dock：四个插件都进 boot graph 时必须亮四个 —— 回归「只有自己亮」', () => {
-	// 这条是 2026-09-26 用户报的 bug：四个都装了、都真的加载了，面板却只亮 LLM Hub 一个。
+test('家族 Dock：两个插件都进 boot graph 时必须亮两个 —— 回归「只有自己亮」', () => {
+	// 这条是 2026-09-26 用户报的 bug：都装了、都真的加载了，面板却只亮 LLM Hub 一个。
 	// 根因是判定写死成 `item.isCurrent`，而 isCurrent:true 只写在 LLM Hub 自己那个对象上，
-	// 另外三个压根没这个字段 → 永远 undefined。判定从来没发生过。
+	// 另外几个压根没这个字段 → 永远 undefined。判定从来没发生过。
 	const hub = bootstrap({
 		boot: [
 			bootEntry('dsh-bloom-theme'),
-			bootEntry('@dsh-plugins/dsh-llm-hub'),
-			bootEntry('@dsh-plugins/dsh-user-mirror'),
-			bootEntry('@dsh-plugins/dsh-env-inspector')
+			bootEntry('@dsh-plugins/dsh-llm-hub')
 		]
 	})
 	const tree = hub.renderSuite()
-	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 4, '四个都激活')
+	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 2, '两个都激活')
 	assert.equal(findByClass(tree, 'dsh-suite-btn-action'), undefined, '一个都不该出现安装按钮')
 })
 
 test('家族 Dock：没装的显示安装按钮，装了的不显示 —— 逐个按真实名单判', () => {
-	const hub = bootstrap({ boot: [bootEntry('dsh-bloom-theme'), bootEntry('@dsh-plugins/dsh-llm-hub')] })
+	const hub = bootstrap({ boot: [bootEntry('@dsh-plugins/dsh-llm-hub')] })
 	const tree = hub.renderSuite()
-	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 2)
+	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 1)
 	// 按钮文案是模板串拼的（`⚡ ${t(...)}`），按后缀数而不是全等 —— 前缀符号也是设计的一部分。
-	assert.equal(textsOf(tree).filter((x) => x.endsWith('suiteCopyInstall')).length, 2, '缺的两个给安装按钮')
+	assert.equal(textsOf(tree).filter((x) => x.endsWith('suiteCopyInstall')).length, 1, '缺的一个给安装按钮')
 })
 
 test('家族 Dock：包名按 aliases 归一 —— scope 改过名也要认得出来', () => {
-	// user-mirror 在 profile 里叫 @dsh-plugins/dsh-user-mirror，仓库叫 dsh-mirror，
-	// 曾经的 row 名是 dsh-mirror。任一形态在 boot graph 里都得算已激活。
-	const hub = bootstrap({ boot: [bootEntry('dsh-mirror')] })
+	// bloom-theme 在 profile 里可能叫 dsh-bloom-theme 或 @dsh-plugins/dsh-bloom-theme
+	// 任一形态在 boot graph 里都得算已激活。
+	const hub = bootstrap({ boot: [bootEntry('dsh-bloom-theme')] })
 	const tree = hub.renderSuite()
-	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 1, '短名 dsh-mirror 也算激活')
+	assert.equal(textsOf(tree).filter((x) => x === 'suiteActive').length, 1, '短名 dsh-bloom-theme 也算激活')
 })
 
 test('家族 Dock：读不到 __DSH_BOOT__ 时说「判定不可用」，不说「没装」', () => {
-	// 把探测失败渲染成「四个都没装」，人会去重装已经装好的插件 —— 这是谎报，必须区分开。
+	// 把探测失败渲染成「都没装」，人会去重装已经装好的插件 —— 这是谎报，必须区分开。
 	const hub = bootstrap({})
 	const tree = hub.renderSuite()
-	assert.equal(textsOf(tree).filter((x) => x === 'suiteUnknown').length, 4, '四个都标判定不可用')
+	assert.equal(textsOf(tree).filter((x) => x === 'suiteUnknown').length, 2, '两个都标判定不可用')
 	assert.equal(findByClass(tree, 'dsh-suite-btn-action'), undefined, '判定不了时不给安装按钮')
 })
 
@@ -423,7 +421,7 @@ test('家族 Dock：entries 形状不对（不是数组）也走「判定不可�
 	for (const boot of [null, 'nonsense', { entries: 'not-an-array' }]) {
 		const hub = bootstrap({ boot })
 		const tree = hub.renderSuite()
-		assert.equal(textsOf(tree).filter((x) => x === 'suiteUnknown').length, 4, `entries=${JSON.stringify(boot)} 应降级`)
+		assert.equal(textsOf(tree).filter((x) => x === 'suiteUnknown').length, 2, `entries=${JSON.stringify(boot)} 应降级`)
 	}
 })
 

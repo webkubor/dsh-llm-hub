@@ -16,7 +16,7 @@ dsh plugin install @dsh-plugins/dsh-llm-hub
 - **厂商多合一集成**：无缝对接主流 LLM Provider，统一协议与地址。
 - **故障智能转移**：当主模型接口限流或异常时，自动秒级切换至备选模型，保证会话不中断。
 - **模型可用性与余额常驻**：在 DSH 会话中直观了解各个厂商的连接状态与计费余额。
-- **全套件联动**：与 Bloom Theme, User Mirror, Env Inspector 互通。
+- **全套件联动**：与 Bloom Theme 深度联动。
 
 ## 仓库与社区
 - 源码: https://github.com/webkubor/dsh-llm-hub
