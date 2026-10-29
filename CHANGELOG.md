@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.9](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.8...v1.9.9) (2026-10-29)
+
+
+### 🐛 Bug Fixes
+
+* **ui:** restore model overview styles and retire obsolete suite cards ([15b1c23](https://github.com/webkubor/dsh-llm-hub/commit/15b1c2345a6c3bc9a02c2ac68b97b7789442f9da))
+
 ## [1.9.8](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.7...v1.9.8) (2026-10-28)
 
 
