@@ -34,7 +34,7 @@ jobs:
       # fetch-depth: 0 + fetch-tags —— 本工作流用 tag 的**注解**当 Release 标题
       # （`git tag -a ... -m "v0.6.2 — …"`）。浅克隆里 `%(contents:subject)` 取不到注解，
       # 标题会静默退化成裸 tag 名（不会报错，只是变难看）。
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
           fetch-depth: 0
