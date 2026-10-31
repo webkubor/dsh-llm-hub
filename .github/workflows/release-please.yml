@@ -55,7 +55,7 @@ jobs:
       contents: read
     steps:
       - name: 对 release PR 启用 auto-merge
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           # ⚠️ 必须用 PR_PAT，不能用默认 GITHUB_TOKEN。
           #   enablePullRequestAutoMerge 是「以用户身份」执行的 GraphQL mutation，

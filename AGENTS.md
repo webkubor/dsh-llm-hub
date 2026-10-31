@@ -17,7 +17,9 @@ DSH 模型管理层插件（`@dsh-plugins/dsh-llm-hub`）：
 ```bash
 npm run check     # 发布前门禁
 npm run test      # 测试
-npm run deploy    # 部署到本机 DSH profile
+npm run check:dsh # 宿主契约门禁（真 cordis 内核跑 apply）
+npm run deploy    # 门禁 → 备份 → 装进 desktop；禁止手写 rsync 进 profile
+npm run rollback  # 桌面端起不来时回滚
 npm run preview   # 本地预览
 ```
 
