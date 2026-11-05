@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.10.0](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.9...v1.10.0) (2026-11-05)
+
+
+### ✨ Features
+
+* **meta:** 补齐插件管理器标题、简介与图标；样式随插件停用移除 ([05c0df7](https://github.com/webkubor/dsh-llm-hub/commit/05c0df71c24a9916eb965a694e362c9f7388a281))
+
 ## [1.9.9](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.8...v1.9.9) (2026-10-29)
 
 
