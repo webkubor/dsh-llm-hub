@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "LLM Hub",
+    "description": "Gateway health, model catalog, provider balances and monthly usage, plus local codex / claude / agy as subagents."
+  }
+}

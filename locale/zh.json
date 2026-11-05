@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "LLM Hub 模型管理",
+    "description": "网关可达性、模型目录、多家余额与本月用量看板，并把本机 codex / claude / agy 注册为子代理。"
+  }
+}

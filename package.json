@@ -13,7 +13,9 @@
     "./client": {
       "default": "./lib/client.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
   },
   "dsh": {
     "bundle": {
@@ -78,7 +80,9 @@
     "cordis.patch.yml",
     "lib",
     "scripts",
-    "types"
+    "types",
+    "locale/*.json",
+    "icon.svg"
   ],
   "devDependencies": {
     "@deepseek-ai/schemastery": "3.18.5"
