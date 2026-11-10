@@ -20,6 +20,7 @@
 <p align="center">
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DeepSeek_Harness-Plugin-4d6bfe?style=for-the-badge" alt="DSH Plugin" /></a>
   <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-4d6bfe?style=for-the-badge" alt="dsh-plugin" /></a>
+  <a href="https://awesome-dsh-plugin.com"><img src="https://awesome-dsh-plugin.com/badge.svg" alt="Awesome DSH Plugin 社区收录" /></a>
   <a href="https://github.com/topics/llm-gateway"><img src="https://img.shields.io/badge/topic-llm--gateway-4C7EF3?style=for-the-badge" alt="llm-gateway" /></a>
   &nbsp;·&nbsp; <a href="README.en.md">English</a> · <a href="CHANGELOG.md">更新日志</a>
 </p>

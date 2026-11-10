@@ -6,6 +6,7 @@
   <a href="https://www.npmjs.com/package/@dsh-plugins/dsh-llm-hub"><img src="https://img.shields.io/npm/v/@dsh-plugins/dsh-llm-hub?style=flat-square&color=4C7EF3&label=npm" alt="npm" /></a>
   <img src="https://img.shields.io/badge/deps-0-5A9E6F?style=flat-square" alt="zero deps" />
   <img src="https://img.shields.io/badge/license-MIT-777?style=flat-square" alt="MIT" />
+  <a href="https://awesome-dsh-plugin.com"><img src="https://awesome-dsh-plugin.com/badge.svg" alt="Awesome DSH Plugin" /></a>
   &nbsp;·&nbsp; <a href="README.md">中文</a> · <a href="CHANGELOG.md">Changelog</a>
 </p>
 
