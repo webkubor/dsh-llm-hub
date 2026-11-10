@@ -85,6 +85,6 @@
     "icon.svg"
   ],
   "devDependencies": {
-    "@deepseek-ai/schemastery": "3.18.5"
+    "@deepseek-ai/schemastery": "3.19.0"
   }
 }
