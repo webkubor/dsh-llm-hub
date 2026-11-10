@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.10.1](https://github.com/webkubor/dsh-llm-hub/compare/v1.10.0...v1.10.1) (2026-11-10)
+
+
+### 📝 Documentation
+
+* add Awesome DSH Plugin listing badge ([586b677](https://github.com/webkubor/dsh-llm-hub/commit/586b6771405f0878eeb6584a8feb81b16bd29fdb))
+
 ## [1.10.0](https://github.com/webkubor/dsh-llm-hub/compare/v1.9.9...v1.10.0) (2026-11-05)
 
 
