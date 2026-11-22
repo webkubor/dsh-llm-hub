@@ -5,3 +5,6 @@ node_modules/
 
 # Claude Code 本地目录（worktree 与本地设置），不入库
 .claude/
+
+# 本地探针脚本（一次性排查用，硬编码他仓 node_modules 绝对路径），不入库
+scripts/probe-*.mjs
