@@ -226,7 +226,6 @@ test('挂载点：两张 provider 卡 + 页脚 + harness + 用量 + 健康看板
 	const mounted = hub.slots.map((slot) => `${slot.name}${slot.id ? '#' + slot.id : ''}${slot.key ? '@' + slot.key : ''}`)
 	assert.deepEqual(mounted.sort(), [
 		'conversation.input.left#dsh-llm-hub-provider-usage',
-		'conversation.input.model.label#dsh-llm-hub.model-origin',
 		'settings.models.footer#dsh-llm-hub-footer',
 		'settings.models.footer#dsh-llm-hub-harness',
 		'settings.models.footer#dsh-llm-hub-health',

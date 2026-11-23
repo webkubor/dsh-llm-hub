@@ -15,9 +15,9 @@ test('ModelOriginLabel 组件存在且使用宿主槽 props', () => {
   assert.match(src, /placement !== 'option'/)
 })
 
-test('conversation.input.model.label 槽已注册', () => {
-  assert.match(src, /ctx\.slots\.inject\('conversation\.input\.model\.label'/)
-  assert.match(src, /id: 'dsh-llm-hub\.model-origin'/)
+test('conversation.input.model.label 槽暂时摘除（真宿主渲染为空，先让宿主 fallback 兜底）', () => {
+  // 2026-11-23：该槽实测渲染为空、把宿主模型名顶掉。修好并做真实渲染验证前保持摘除。
+  assert.match(src, /if \(false\) ctx\.slots\.inject\('conversation\.input\.model\.label'/)
 })
 
 test('providerShortName 规则：账号/API 分流', () => {
