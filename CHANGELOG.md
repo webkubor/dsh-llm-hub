@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.11.1](https://github.com/webkubor/dsh-llm-hub/compare/v1.11.0...v1.11.1) (2026-11-23)
+
+
+### 🐛 Bug Fixes
+
+* **model-origin:** 摘除在真宿主渲染为空的模型来源标签槽 ([a647eab](https://github.com/webkubor/dsh-llm-hub/commit/a647eabbbc7f0e4b73302e1a0771f6bc86e5f6d0))
+
 ## [1.11.0](https://github.com/webkubor/dsh-llm-hub/compare/v1.10.1...v1.11.0) (2026-11-23)
 
 
