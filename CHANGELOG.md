@@ -2,6 +2,18 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.11.0](https://github.com/webkubor/dsh-llm-hub/compare/v1.10.1...v1.11.0) (2026-11-23)
+
+
+### ✨ Features
+
+* **model+harness:** 模型来源标识 + 任务结束自动续跑 hook ([#23](https://github.com/webkubor/dsh-llm-hub/issues/23)) ([93dd52b](https://github.com/webkubor/dsh-llm-hub/commit/93dd52b1f9d88ec6618eead2aa4851e6c0e8465d))
+
+
+### 🐛 Bug Fixes
+
+* **model-origin:** 模型名显式取官方主文字 token + 门禁支持 web-only 宿主 ([0f11abd](https://github.com/webkubor/dsh-llm-hub/commit/0f11abd6f15cfe3932ca0643c47cef4a221d5006))
+
 ## [1.10.1](https://github.com/webkubor/dsh-llm-hub/compare/v1.10.0...v1.10.1) (2026-11-10)
 
 
