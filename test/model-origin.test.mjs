@@ -32,6 +32,12 @@ test('样式类已加入 ensureStyle', () => {
   assert.match(src, /\.dshllmh-model-origin__tag\{/)
 })
 
+test('模型名显式取官方主文字 token（不靠 inherit，防主题/disabled 态变淡）', () => {
+  const m = src.match(/\.dshllmh-model-origin__name\{[^}]*\}/)
+  assert.ok(m, '缺 __name 样式')
+  assert.match(m[0], /color:var\(--dsw-alias-label-primary,currentColor\)/)
+})
+
 test('zh/en 词典都含 model-origin 词条', () => {
   assert.match(src, /'model-origin\.via': '来源：\{provider\}'/)
   assert.match(src, /'model-origin\.via': 'via \{provider\}'/)
