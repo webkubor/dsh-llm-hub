@@ -27,9 +27,9 @@ test('Config 导出 hooks 段', () => {
 })
 
 test('hookRule 四个字段与默认值', () => {
-  assert.match(src, /enabled: z\.boolean\(\)\.default\(false\)/)
-  assert.match(src, /maxTurns: z\.number\(\)\.default\(0\)/)
-  assert.match(src, /maxIdleMinutes: z\.number\(\)\.default\(0\)/)
+  assert.match(src, /enabled: z\.boolean\(\)\.default\(true\)/)
+  assert.match(src, /maxTurns: z\.number\(\)\.default\(20\)/)
+  assert.match(src, /maxIdleMinutes: z\.number\(\)\.default\(120\)/)
   assert.match(src, /continuePrompt: z\.string\(\)\.default\(''\)/)
 })
 
@@ -46,10 +46,14 @@ test('监听 agent/turn-stopping（官方公开事件）', () => {
   assert.match(src, /\{ global: true \}\)/)
 })
 
-test('续跑走官方 followup API，不碰宿主内部', () => {
+test('续跑走官方 followup API，且消息符合 UserMessage 契约', () => {
   assert.match(src, /typeof agent\?\.followup === 'function'/)
   assert.match(src, /agent\.followup\(\{/)
-  assert.match(src, /source: 'dsh-llm-hub:auto-continue'/)
+  // 2026-11-23 实测：source 写成字符串 + 缺 id → followup 抛错被吞，hook 表现为无效果
+  assert.match(src, /id: uuid/)
+  assert.match(src, /role: 'user'/)
+  assert.match(src, /content: \[\{ type: 'text', text: prompt \}\]/)
+  assert.match(src, /source: \{ kind: 'user' \}/)
 })
 
 test('hook 失败静默（try/catch 包裹，不影响回合停止语义）', () => {
@@ -81,7 +85,7 @@ function decide({ rule, state, now }) {
   return { act: true, prompt }
 }
 
-test('默认关闭：enabled=false 时永不续跑', () => {
+test('显式关闭：enabled=false 时永不续跑', () => {
   const r = decide({ rule: { enabled: false, maxTurns: 99, maxIdleMinutes: 99 }, state: { turns: 0, firstAt: Date.now() }, now: Date.now() })
   assert.equal(r.act, false)
   assert.equal(r.why, 'disabled')
