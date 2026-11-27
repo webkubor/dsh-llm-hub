@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.11.2](https://github.com/webkubor/dsh-llm-hub/compare/v1.11.1...v1.11.2) (2026-11-27)
+
+
+### 🐛 Bug Fixes
+
+* **hook:** 续跑 hook 默认开启并修正 followup 消息契约 ([49bc679](https://github.com/webkubor/dsh-llm-hub/commit/49bc679643dbff6f0e6c6e3daa867d0409edd994))
+
 ## [1.11.1](https://github.com/webkubor/dsh-llm-hub/compare/v1.11.0...v1.11.1) (2026-11-23)
 
 
