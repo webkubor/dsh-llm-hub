@@ -98,7 +98,8 @@ function createHost(options = {}) {
 	const hubConfig = {
 		routing: { get: () => sections['dsh-llm-hub']?.routing },
 		warning: { get: () => sections['dsh-llm-hub']?.warning },
-		aliases: { get: () => sections['dsh-llm-hub']?.aliases }
+		aliases: { get: () => sections['dsh-llm-hub']?.aliases },
+		hooks: { get: () => sections['dsh-llm-hub']?.hooks }
 	}
 	return { ctx, config: hubConfig, routes, listeners, emitted, warnings, call, getLlm: () => llm, dispose: () => disposers.forEach((fn) => fn()) }
 }
@@ -125,6 +126,31 @@ async function boot(t, options) {
 	const payload = options?.probe === false ? null : (await host.call('/api/dsh-llm-hub/availability/recheck', 'POST')).body
 	return { ...host, payload }
 }
+
+test('turn-stopping 串行监听器只接收 payload', async (t) => {
+	const autoContinue = { enabled: false, maxTurns: 1, continuePrompt: '继续测试' }
+	const host = await boot(t, {
+		probe: false,
+		sections: { 'dsh-llm-hub': { hooks: { autoContinue } } },
+	})
+	const listener = host.listeners.get('agent/turn-stopping')
+	assert.equal(listener.opts.global, true)
+	const messages = []
+	const payload = {
+		agent: { session: { id: 'serial-test' }, followup: (message) => messages.push(message) },
+		turn: 1,
+		signal: new AbortController().signal,
+	}
+	await listener.fn(payload)
+	assert.equal(messages.length, 0)
+	autoContinue.enabled = true
+	await listener.fn(payload)
+	assert.equal(messages.length, 1)
+	assert.deepEqual(messages[0].content, [{ type: 'text', text: '继续测试' }])
+	assert.deepEqual(messages[0].source, { kind: 'user' })
+	await listener.fn(payload)
+	assert.equal(messages.length, 1)
+})
 
 /** 从 payload 里取某 provider 的判定。 */
 const verdictOf = (payload, provider) => payload.providers.find((entry) => entry.provider === provider)

@@ -42,7 +42,7 @@ test('hooks 段标记 volatile（0.1.7 settings.update 契约）', () => {
 // ── 结构断言：事件挂载 ─────────────────────────────────────────────────────
 
 test('监听 agent/turn-stopping（官方公开事件）', () => {
-  assert.match(src, /ctx\.on\('agent\/turn-stopping', \(payload, next\)/)
+  assert.match(src, /ctx\.on\('agent\/turn-stopping', \(payload\)/)
   assert.match(src, /\{ global: true \}\)/)
 })
 
@@ -57,11 +57,11 @@ test('续跑走官方 followup API，且消息符合 UserMessage 契约', () => 
 })
 
 test('hook 失败静默（try/catch 包裹，不影响回合停止语义）', () => {
-  // turn-stopping 处理体整体在 try{}catch{} 里，异常时也要 next()
+  // turn-stopping 处理体整体在 try{}catch{} 里，串行事件没有 next 回调
   const i = src.indexOf("ctx.on('agent/turn-stopping'")
   const seg = src.slice(i, i + 2400)
   assert.ok(/catch \{/.test(seg), '缺 catch 兜底')
-  assert.match(seg, /return next\(\)/)
+  assert.doesNotMatch(seg.split("}, { global: true })")[0], /\bnext\(/)
 })
 
 test('会话隔离的续跑计数（Map + ctx.effect 清理）', () => {
