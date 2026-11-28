@@ -2,6 +2,12 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.11.3](https://github.com/webkubor/dsh-llm-hub/compare/v1.11.2...v1.11.3) (2026-11-28)
+
+### 修复
+
+- 修复 DSH 回合结束时出现的 `next is not a function` 报错。关闭自动续跑或达到续跑上限后，回合正常结束。 [#26](https://github.com/webkubor/dsh-llm-hub/issues/26)
+
 ## [1.11.2](https://github.com/webkubor/dsh-llm-hub/compare/v1.11.1...v1.11.2) (2026-11-27)
 
 
